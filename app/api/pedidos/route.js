@@ -25,11 +25,25 @@ export async function POST(request) {
       );
     }
 
+    // guardarPedido revalida todo, recalcula precios desde la BD y escribe con service_role
     const pedido = await guardarPedido(datosCliente, items);
 
     return NextResponse.json({ mensaje: 'Pedido creado con éxito', pedido }, { status: 201 });
   } catch (error) {
     console.error('Error en POST /api/pedidos:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Errores de validación (status 400): el mensaje es seguro de mostrar al usuario.
+    if (error.status === 400) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    // Errores internos: en desarrollo mostramos el detalle; en producción, un mensaje genérico
+    // (el detalle real queda en los logs del servidor / de Vercel).
+    const mensaje =
+      process.env.NODE_ENV === 'development'
+        ? error.message
+        : 'No se pudo crear el pedido. Intenta de nuevo en unos minutos.';
+
+    return NextResponse.json({ error: mensaje }, { status: 500 });
   }
 }
