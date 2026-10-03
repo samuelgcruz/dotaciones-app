@@ -20,16 +20,19 @@ export default function CategoryCard({ categoria }) {
           className="object-cover transition-transform duration-500 ease-out group-hover:scale-110"
         />
       ) : (
-        <div className="h-full w-full bg-blue-100" />
+        <div className="h-full w-full bg-amber-100" />
       )}
 
       {/* Overlay oscuro para que el texto blanco siempre sea legible */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
+      {/* Borde ámbar sutil al pasar el mouse: refuerza la identidad de marca */}
+      <div className="absolute inset-0 rounded-2xl ring-0 ring-inset ring-amber-400 transition-all duration-300 group-hover:ring-2" />
+
       <div className="absolute inset-x-0 bottom-0 p-5 text-white">
         <h3 className="text-xl font-bold drop-shadow-sm">{categoria.nombre}</h3>
-        <p className="mt-1 text-sm text-gray-200 line-clamp-2">{categoria.descripcion}</p>
-        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-white opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
+        <p className="mt-1 text-sm text-slate-200 line-clamp-2">{categoria.descripcion}</p>
+        <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-amber-300 opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-1">
           Ver catálogo <ArrowRight className="h-4 w-4" />
         </span>
       </div>
