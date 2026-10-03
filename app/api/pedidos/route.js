@@ -37,17 +37,11 @@ export async function POST(request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // ⚠️ TEMPORAL PARA DEPURAR ⚠️
-    // Mientras encontramos la causa del 500, mostramos el mensaje real en vez
-    // del genérico (en Vercel, NODE_ENV siempre es "production", así que la
-    // condición de antes nunca mostraba el detalle). Antes de que clientes
-    // reales usen el sitio, vuelve a dejar solo el mensaje genérico de abajo
-    // (está comentado) y borra la línea `mensaje: error.message`.
+    // Errores internos: el detalle real queda SOLO en los logs del servidor
+    // (Vercel → Deployments → el deployment activo → Functions → /api/pedidos).
+    // Al usuario se le muestra un mensaje genérico, nunca el detalle interno.
     return NextResponse.json(
-      {
-        error: 'No se pudo crear el pedido. Intenta de nuevo en unos minutos.',
-        mensaje: error.message, // <-- quita esta línea cuando termines de depurar
-      },
+      { error: 'No se pudo crear el pedido. Intenta de nuevo en unos minutos.' },
       { status: 500 }
     );
   }
