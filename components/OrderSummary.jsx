@@ -3,7 +3,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Phone } from 'lucide-react';
 
 export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
   const [datosCliente, setDatosCliente] = useState({
@@ -24,6 +24,10 @@ export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
 
     if (items.length === 0) {
       setError('Selecciona al menos una prenda antes de solicitar la dotación.');
+      return;
+    }
+    if (!datosCliente.telefono.trim()) {
+      setError('Ingresa un teléfono de contacto para poder confirmar tu pedido.');
       return;
     }
 
@@ -50,23 +54,31 @@ export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
   }
 
   return (
-    <div className="sticky top-24 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <ShoppingBag className="h-5 w-5 text-blue-600" />
-        <h3 className="text-lg font-semibold">Resumen de tu dotación</h3>
+    <div className="sticky top-24 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-5 flex items-center gap-2">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100">
+          <ShoppingBag className="h-5 w-5 text-amber-700" />
+        </span>
+        <h3 className="text-lg font-bold text-slate-900">Resumen de tu dotación</h3>
       </div>
 
       {items.length === 0 ? (
-        <p className="mb-4 text-sm text-gray-400">Aún no has seleccionado nada.</p>
+        <p className="mb-4 rounded-lg bg-slate-50 px-3 py-4 text-center text-sm text-slate-400">
+          Aún no has seleccionado nada.
+        </p>
       ) : (
-        <ul className="mb-4 divide-y divide-gray-100">
+        <ul className="mb-4 divide-y divide-slate-100">
           {items.map((item, idx) => (
-            <li key={idx} className="flex justify-between py-2 text-sm">
-              <span>
+            <li key={idx} className="flex justify-between py-2.5 text-sm">
+              <span className="text-slate-700">
                 {item.nombre}
-                {item.tallaNombre ? ` (Talla ${item.tallaNombre})` : ''}
+                {item.tallaNombre ? (
+                  <span className="text-slate-400"> (Talla {item.tallaNombre})</span>
+                ) : (
+                  ''
+                )}
               </span>
-              <span className="font-medium">
+              <span className="font-medium text-slate-900">
                 ${(item.cantidad * item.precio_unitario).toLocaleString('es-CO')}
               </span>
             </li>
@@ -74,49 +86,80 @@ export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
         </ul>
       )}
 
-      <div className="mb-4 flex justify-between border-t border-gray-200 pt-3 font-bold">
-        <span>Total</span>
-        <span className="text-blue-600">${total.toLocaleString('es-CO')}</span>
+      <div className="mb-5 flex items-center justify-between border-t border-slate-200 pt-4">
+        <span className="font-bold text-slate-900">Total</span>
+        <span className="text-xl font-extrabold text-amber-700">
+          ${total.toLocaleString('es-CO')}
+        </span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
+          id="nombre"
+          name="nombre"
           type="text"
+          autoComplete="name"
           placeholder="Nombre completo"
           required
           value={datosCliente.nombre}
           onChange={(e) => setDatosCliente({ ...datosCliente, nombre: e.target.value })}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
         <input
+          id="email"
+          name="email"
           type="email"
+          autoComplete="email"
           placeholder="Correo electrónico"
           required
           value={datosCliente.email}
           onChange={(e) => setDatosCliente({ ...datosCliente, email: e.target.value })}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
+
+        <div className="relative">
+          <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            id="telefono"
+            name="telefono"
+            type="tel"
+            autoComplete="tel"
+            placeholder="Teléfono de contacto"
+            required
+            value={datosCliente.telefono}
+            onChange={(e) => setDatosCliente({ ...datosCliente, telefono: e.target.value })}
+            className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          />
+        </div>
+
         <input
+          id="empresa"
+          name="empresa"
           type="text"
+          autoComplete="organization"
           placeholder="Empresa (opcional)"
           value={datosCliente.empresa}
           onChange={(e) => setDatosCliente({ ...datosCliente, empresa: e.target.value })}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
         <textarea
+          id="notas"
+          name="notas"
           placeholder="Notas adicionales"
           value={datosCliente.notas}
           onChange={(e) => setDatosCliente({ ...datosCliente, notas: e.target.value })}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           rows={2}
         />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+        )}
 
         <button
           type="submit"
           disabled={enviando}
-          className="w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-lg bg-amber-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700 disabled:opacity-50"
         >
           {enviando ? 'Enviando...' : 'Solicitar dotación'}
         </button>
