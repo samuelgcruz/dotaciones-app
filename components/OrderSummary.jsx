@@ -5,11 +5,26 @@
 import { useState } from 'react';
 import { ShoppingBag, Phone } from 'lucide-react';
 
+// Lista corta de prefijos telefónicos (agrega los que te hagan falta).
+// value = lo que se antepone al número; label = lo que ve el usuario.
+const PREFIJOS_PAIS = [
+  { value: '+57', label: '🇨🇴 +57 Colombia' },
+  { value: '+52', label: '🇲🇽 +52 México' },
+  { value: '+51', label: '🇵🇪 +51 Perú' },
+  { value: '+56', label: '🇨🇱 +56 Chile' },
+  { value: '+54', label: '🇦🇷 +54 Argentina' },
+  { value: '+593', label: '🇪🇨 +593 Ecuador' },
+  { value: '+58', label: '🇻🇪 +58 Venezuela' },
+  { value: '+34', label: '🇪🇸 +34 España' },
+  { value: '+1', label: '🇺🇸 +1 Estados Unidos / Canadá' },
+];
+
 export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
   const [datosCliente, setDatosCliente] = useState({
     nombre: '',
     email: '',
-    telefono: '',
+    prefijo: '+57',
+    numero: '',
     empresa: '',
     notas: '',
   });
@@ -26,10 +41,17 @@ export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
       setError('Selecciona al menos una prenda antes de solicitar la dotación.');
       return;
     }
-    if (!datosCliente.telefono.trim()) {
-      setError('Ingresa un teléfono de contacto para poder confirmar tu pedido.');
+
+    // El usuario solo escribe el número local; el prefijo lo elige aparte,
+    // así evitamos que alguien escriba el número sin indicativo de país
+    // (o que lo repita a mano y se equivoque).
+    const soloDigitos = datosCliente.numero.replace(/\D/g, '');
+    if (soloDigitos.length < 7) {
+      setError('Ingresa un número de teléfono válido, sin el indicativo de país.');
       return;
     }
+
+    const telefono = `${datosCliente.prefijo}${soloDigitos}`;
 
     setEnviando(true);
     try {
@@ -37,7 +59,14 @@ export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          datosCliente: { ...datosCliente, categoriaId },
+          datosCliente: {
+            nombre: datosCliente.nombre,
+            email: datosCliente.email,
+            telefono,
+            empresa: datosCliente.empresa,
+            notas: datosCliente.notas,
+            categoriaId,
+          },
           items,
         }),
       });
@@ -117,19 +146,39 @@ export default function OrderSummary({ items, categoriaId, onPedidoEnviado }) {
           className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
 
-        <div className="relative">
-          <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            id="telefono"
-            name="telefono"
-            type="tel"
-            autoComplete="tel"
-            placeholder="Teléfono de contacto"
-            required
-            value={datosCliente.telefono}
-            onChange={(e) => setDatosCliente({ ...datosCliente, telefono: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          />
+        {/* Prefijo de país + número local, por separado: así nadie puede
+            olvidarse del indicativo (el selector siempre trae uno puesto). */}
+        <div className="flex gap-2">
+          <select
+            id="prefijo"
+            name="prefijo"
+            autoComplete="tel-country-code"
+            value={datosCliente.prefijo}
+            onChange={(e) => setDatosCliente({ ...datosCliente, prefijo: e.target.value })}
+            className="w-[7.5rem] flex-shrink-0 rounded-lg border border-slate-300 px-2 py-2.5 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          >
+            {PREFIJOS_PAIS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+
+          <div className="relative flex-1">
+            <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              id="telefono"
+              name="telefono"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              placeholder="Número de celular"
+              required
+              value={datosCliente.numero}
+              onChange={(e) => setDatosCliente({ ...datosCliente, numero: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm text-slate-900 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
         </div>
 
         <input
