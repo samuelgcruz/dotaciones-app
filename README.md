@@ -205,11 +205,3 @@ Row Level Security está activo en todas las tablas. El reparto de responsabilid
 | El pedido se crea pero el stock no baja | Estás en una versión de `queries.js` anterior a la función atómica | Usa la versión de `queries.js` que llama a `crear_pedido_completo` vía `admin.rpc(...)` |
 | `Stock insuficiente: solo quedan N unidades en esa talla` | Alguien más compró esa talla justo antes (comportamiento esperado) | Es el control anti-sobreventa funcionando; el usuario debe elegir otra talla |
 
-## Roadmap
-
-- [ ] Panel de administración (con Supabase Auth) para gestionar productos,
-      accesorios y ver/actualizar el estado de los pedidos entrantes.
-- [ ] Subir imágenes de productos a **Supabase Storage** y usarlas en `imagen_url`.
-- [ ] Suscripción a **Supabase Realtime** sobre `producto_tallas` para que el
-      stock se actualice solo en la pantalla, sin recargar.
-- [ ] Notificación por correo o WhatsApp al cliente cuando cambie el estado de su pedido.
