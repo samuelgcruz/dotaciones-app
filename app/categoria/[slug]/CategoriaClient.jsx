@@ -9,6 +9,14 @@ import SizeSelector from '@/components/SizeSelector';
 import AccessoriesSelector from '@/components/AccessoriesSelector';
 import OrderSummary from '@/components/OrderSummary';
 
+function PasoNumero({ numero }) {
+  return (
+    <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-xs font-bold text-white">
+      {numero}
+    </span>
+  );
+}
+
 export default function CategoriaClient({ categoria, productos, accesorios }) {
   // prendasSeleccionadas: { [producto_id]: { tallaId, tallaNombre, precio, tipo_prenda } }
   const [prendasSeleccionadas, setPrendasSeleccionadas] = useState({});
@@ -68,8 +76,8 @@ export default function CategoriaClient({ categoria, productos, accesorios }) {
 
   if (pedidoConfirmado) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
-        <h3 className="text-xl font-bold text-green-700 mb-2">¡Solicitud enviada!</h3>
+      <div className="rounded-2xl border border-green-200 bg-green-50 p-8 text-center">
+        <h3 className="mb-2 text-xl font-bold text-green-700">¡Solicitud enviada!</h3>
         <p className="text-green-700">
           Tu pedido #{pedidoConfirmado.id.slice(0, 8)} fue registrado. Te contactaremos pronto.
         </p>
@@ -81,7 +89,9 @@ export default function CategoriaClient({ categoria, productos, accesorios }) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-8">
         <section>
-          <h3 className="font-semibold text-lg mb-3">1. Elige tu camisa/filipina y pantalón</h3>
+          <h3 className="mb-3 flex items-center text-lg font-semibold text-slate-900">
+            <PasoNumero numero={1} /> Elige tu camisa/filipina y pantalón
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {productos.map((producto) => (
               <SizeSelector
@@ -95,7 +105,9 @@ export default function CategoriaClient({ categoria, productos, accesorios }) {
         </section>
 
         <section>
-          <h3 className="font-semibold text-lg mb-3">2. Extras para {categoria.nombre}</h3>
+          <h3 className="mb-3 flex items-center text-lg font-semibold text-slate-900">
+            <PasoNumero numero={2} /> Extras para {categoria.nombre}
+          </h3>
           <AccessoriesSelector
             accesorios={accesorios}
             seleccionados={accesoriosSeleccionados}
