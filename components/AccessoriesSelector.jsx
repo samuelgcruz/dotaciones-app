@@ -1,58 +1,74 @@
 // components/AccessoriesSelector.jsx
-// Cada accesorio es un botón completo (más fácil de tocar en celular), con
-// miniatura de imagen y un check animado cuando está seleccionado.
+// Accesorios de la zona. Cada uno se puede pedir en la cantidad que haga falta:
+// el botón "Agregar" se convierte en un control de cantidad.
 'use client';
 
 import Image from 'next/image';
-import { Check } from 'lucide-react';
+import { claveLinea, useCarrito } from '@/lib/carrito';
+import { formatoPrecio } from '@/lib/formato';
+import CantidadStepper from './CantidadStepper';
 
-export default function AccessoriesSelector({ accesorios, seleccionados, onToggle }) {
+export default function AccessoriesSelector({ accesorios, categoria }) {
+  const { cantidadDe, ajustarLinea } = useCarrito();
+
   if (!accesorios || accesorios.length === 0) {
-    return <p className="text-sm text-slate-400">Esta área no tiene accesorios adicionales.</p>;
+    return <p className="text-acero">Esta zona no tiene accesorios adicionales.</p>;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {accesorios.map((accesorio) => {
-        const activo = Boolean(seleccionados[accesorio.id]);
+        const precio = Number(accesorio.precio);
+        const base = {
+          key: claveLinea('accesorio', accesorio.id, null),
+          tipo: 'accesorio',
+          id: accesorio.id,
+          tallaId: null,
+          tallaNombre: null,
+          nombre: accesorio.nombre,
+          precio,
+          stock: 99, // los accesorios no manejan stock en la BD
+          imagen_url: accesorio.imagen_url,
+          categoriaId: categoria.id,
+          categoriaNombre: categoria.nombre,
+          categoriaSlug: categoria.slug,
+        };
+        const cantidad = cantidadDe(base.key);
+
         return (
-          <button
-            type="button"
+          <article
             key={accesorio.id}
-            onClick={() => onToggle(accesorio)}
-            className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150 ${
-              activo
-                ? 'border-amber-500 bg-amber-50 shadow-sm'
-                : 'border-slate-200 bg-white hover:border-amber-300 hover:shadow-sm'
-            }`}
+            className={`flex border-2 border-tinta ${cantidad > 0 ? 'bg-seguridad' : 'bg-papel'}`}
           >
-            <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
+            <div className="relative w-28 shrink-0 border-r-2 border-tinta bg-concreto-oscuro">
               {accesorio.imagen_url && (
                 <Image
                   src={accesorio.imagen_url}
                   alt={accesorio.nombre}
                   fill
-                  sizes="56px"
+                  sizes="112px"
                   className="object-cover"
                 />
               )}
             </div>
 
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">{accesorio.nombre}</p>
-              <p className="text-sm text-slate-500">
-                ${accesorio.precio.toLocaleString('es-CO')}
-              </p>
-            </div>
+            <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-3">
+              <div>
+                <h4 className="font-display text-xl font-bold uppercase leading-tight">{accesorio.nombre}</h4>
+                <p className="font-display text-xl font-semibold tabular-nums">{formatoPrecio(precio)}</p>
+              </div>
 
-            <div
-              className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                activo ? 'border-amber-600 bg-amber-600' : 'border-slate-300 bg-white'
-              }`}
-            >
-              {activo && <Check className="h-4 w-4 text-white" />}
+              <CantidadStepper
+                compacto
+                cantidad={cantidad}
+                etiqueta={accesorio.nombre}
+                etiquetaAgregar="Agregar"
+                puedeSumar={cantidad < 99}
+                onMenos={() => ajustarLinea(base, -1)}
+                onMas={() => ajustarLinea(base, 1)}
+              />
             </div>
-          </button>
+          </article>
         );
       })}
     </div>

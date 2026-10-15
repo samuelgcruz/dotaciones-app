@@ -1,1 +1,126 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------
+   Sistema visual: planta industrial.
+   Concreto como fondo, grafito para estructura y amarillo de
+   señalización solo donde hay una acción o un dato que importa.
+---------------------------------------------------------------- */
+
+/* Las fuentes llegan desde next/font (ver app/layout.js) */
+@theme inline {
+  --font-display: var(--font-display-src), "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-sans: var(--font-body-src), system-ui, sans-serif;
+}
+
+@theme {
+  --color-concreto: #d9dad6;
+  --color-concreto-oscuro: #bcbeb8;
+  --color-papel: #f4f4f1;
+  --color-grafito: #272a30;
+  --color-tinta: #1b1d21;
+  --color-acero: #4b515b;
+  --color-seguridad: #ffc400;
+  --color-alerta: #c2410c;
+  --color-verificado: #2f7d4f;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  /* Plano cuadriculado muy tenue detrás de todo el sitio */
+  body {
+    background-color: var(--color-concreto);
+    background-image:
+      linear-gradient(to right, rgb(27 29 33 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(27 29 33 / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    color: var(--color-tinta);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-tinta);
+    outline-offset: 2px;
+  }
+
+  .zona-oscura :focus-visible {
+    outline-color: var(--color-seguridad);
+  }
+
+  ::selection {
+    background: var(--color-seguridad);
+    color: var(--color-tinta);
+  }
+}
+
+@layer components {
+  /* Franja de demarcación (amarillo / negro) */
+  .franja-peligro {
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--color-seguridad) 0 12px,
+      var(--color-tinta) 12px 24px
+    );
+  }
+
+  /* Marcas de corte en dos esquinas: identifican una foto como "ficha" */
+  .marcas {
+    position: relative;
+  }
+  .marcas::before,
+  .marcas::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+    border: 0 solid var(--color-tinta);
+    z-index: 1;
+  }
+  .marcas::before {
+    top: -6px;
+    left: -6px;
+    border-top-width: 3px;
+    border-left-width: 3px;
+  }
+  .marcas::after {
+    bottom: -6px;
+    right: -6px;
+    border-bottom-width: 3px;
+    border-right-width: 3px;
+  }
+
+  /* Ranuras de ventilación del casillero */
+  .rejilla {
+    background: repeating-linear-gradient(
+      to bottom,
+      rgb(244 244 241 / 0.7) 0 3px,
+      transparent 3px 9px
+    );
+  }
+
+  /* Barra de pedido: aparece al sumar la primera unidad */
+  .entra-desde-abajo {
+    animation: entra-desde-abajo 0.25s ease-out;
+  }
+}
+
+@keyframes entra-desde-abajo {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

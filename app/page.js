@@ -1,58 +1,72 @@
 // app/page.js
 import { obtenerCategorias } from '@/lib/queries';
 import CategoryCard from '@/components/CategoryCard';
-import { BadgeCheck, Ruler, Package } from 'lucide-react';
+
+const PASOS = [
+  { titulo: 'Elige la zona', texto: 'Cada zona de trabajo tiene sus propias prendas y accesorios.' },
+  { titulo: 'Define cantidades', texto: 'Suma unidades por talla, tantas como necesite tu equipo.' },
+  { titulo: 'Envía el pedido', texto: 'Revisa el resumen, deja tus datos de contacto y te escribimos.' },
+];
 
 export default async function HomePage() {
   const categorias = await obtenerCategorias();
 
   return (
     <div>
-      {/* Hero: degradado slate con un resplandor ámbar decorativo (solo CSS,
-          sin depender de ninguna imagen externa) */}
-      <section className="relative mb-14 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 px-8 py-16 text-white sm:px-12">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-amber-500/20 blur-3xl" />
-
-        <div className="relative">
-          <span className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">
-            <BadgeCheck className="h-3.5 w-3.5" />
-            {categorias.length} áreas de trabajo disponibles
-          </span>
-
-          <h2 className="max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">
-            Dotación profesional para cada industria
-          </h2>
-          <p className="mt-4 max-w-xl text-slate-300">
-            Uniformes de calidad, tallas completas y accesorios especializados.
-            Elige el área de tu equipo y arma su dotación en minutos.
+      <section className="mx-auto max-w-[88rem] px-4 pt-10 sm:px-8 sm:pt-14">
+        <div className="grid gap-6 lg:grid-cols-[1fr_21rem] lg:items-end">
+          <h1 className="text-balance font-display text-[clamp(3rem,7.5vw,7rem)] font-extrabold uppercase leading-[0.85] tracking-tight">
+            Dotación para cada zona de trabajo
+          </h1>
+          <p className="max-w-sm text-lg leading-snug text-acero">
+            Elige el área de tu equipo, indica cuántas unidades necesitas de cada talla y envía el
+            pedido.
           </p>
-
-          <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <Ruler className="h-4 w-4 text-amber-400" /> Tallas completas por prenda
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Package className="h-4 w-4 text-amber-400" /> Accesorios especializados por área
-            </span>
-          </div>
         </div>
       </section>
 
-      <div className="mb-8">
-        <h3 className="mb-2 flex items-center gap-2 text-2xl font-bold text-slate-900">
-          <span className="h-6 w-1.5 rounded-full bg-amber-600" />
-          Elige tu área de trabajo
-        </h3>
-        <p className="text-slate-600">
-          Selecciona la industria de tu equipo para personalizar su dotación.
-        </p>
-      </div>
+      <section aria-labelledby="zonas" className="mx-auto max-w-[88rem] px-4 pt-10 sm:px-8 sm:pt-12">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <h2 id="zonas" className="font-display text-3xl font-bold uppercase leading-none">
+            Zonas de trabajo
+          </h2>
+          <p className="text-sm text-acero">
+            {categorias.length} {categorias.length === 1 ? 'zona disponible' : 'zonas disponibles'}
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {categorias.map((categoria) => (
-          <CategoryCard key={categoria.id} categoria={categoria} />
-        ))}
-      </div>
+        {categorias.length === 0 ? (
+          <p className="border-2 border-tinta bg-papel p-8 text-acero">
+            Todavía no hay zonas de trabajo publicadas.
+          </p>
+        ) : (
+          <div className="flex flex-col border-2 border-tinta bg-tinta lg:h-[34rem] lg:flex-row">
+            {categorias.map((categoria, i) => (
+              <CategoryCard key={categoria.id} categoria={categoria} indice={i} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="como-se-pide" className="mx-auto max-w-[88rem] px-4 pt-16 sm:px-8">
+        <h2 id="como-se-pide" className="mb-10 font-display text-3xl font-bold uppercase leading-none">
+          Cómo se pide
+        </h2>
+        <ol className="grid gap-10 md:grid-cols-3 md:gap-8">
+          {PASOS.map((paso, i) => (
+            <li
+              key={paso.titulo}
+              className="relative border-l-4 border-tinta pb-1 pl-8 md:border-l-0 md:border-t-4 md:pl-0 md:pt-8"
+            >
+              <span className="absolute -left-[18px] top-0 grid h-9 w-9 place-items-center border-2 border-tinta bg-seguridad font-display text-xl font-bold tabular-nums md:-top-[18px] md:left-0">
+                {i + 1}
+              </span>
+              <h3 className="font-display text-2xl font-bold uppercase leading-none">{paso.titulo}</h3>
+              <p className="mt-2 max-w-xs text-acero">{paso.texto}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
