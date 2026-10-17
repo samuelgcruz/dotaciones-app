@@ -5,7 +5,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Copy, Mail, MessageCircle, Plus, Trash2 } from 'lucide-react';
+import { Check, Copy, Info, Mail, MessageCircle, Plus, Trash2 } from 'lucide-react';
 import { CORREO_SOLICITUDES, WHATSAPP_NUMERO } from '@/lib/contacto';
 
 const MAX_LINEAS = 20;
@@ -132,11 +132,13 @@ export default function SolicitudClient({ zonas, inicial }) {
   const siguienteId = useRef(2);
   const [intento, setIntento] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [simulado, setSimulado] = useState(null); // { canal, texto } cuando el envío es una simulación
 
   const zonaPorId = new Map(zonas.map((z) => [z.id, z.nombre]));
   const { errores, completas, hay } = validar(datos, lineas);
   const totalUnidades = completas.reduce((acc, l) => acc + Number(l.cantidad), 0);
-  const sinCanales = !WHATSAPP_NUMERO && !CORREO_SOLICITUDES;
+  // Sin número ni correo configurados (proyecto académico) el envío es una simulación
+  const hayAlgunaSimulacion = !WHATSAPP_NUMERO || !CORREO_SOLICITUDES;
 
   const campo = (nombre) => (e) => setDatos((prev) => ({ ...prev, [nombre]: e.target.value }));
   const errorDe = (nombre) => (intento ? errores[nombre] : undefined);
@@ -158,10 +160,15 @@ export default function SolicitudClient({ zonas, inicial }) {
   async function enviar(canal) {
     setIntento(true);
     setAviso('');
+    setSimulado(null);
     if (hay) return;
 
     if (canal === 'whatsapp') {
       const texto = armarMensaje('whatsapp', datos, completas, zonaPorId);
+      if (!WHATSAPP_NUMERO) {
+        setSimulado({ canal: 'WhatsApp', texto });
+        return;
+      }
       window.open(
         `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`,
         '_blank',
@@ -172,6 +179,10 @@ export default function SolicitudClient({ zonas, inicial }) {
 
     const texto = armarMensaje('texto', datos, completas, zonaPorId);
     if (canal === 'correo') {
+      if (!CORREO_SOLICITUDES) {
+        setSimulado({ canal: 'correo', texto });
+        return;
+      }
       const asunto = `Solicitud especial de dotación: ${datos.empresa.trim()}`;
       window.location.href = `mailto:${CORREO_SOLICITUDES}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`;
       return;
@@ -190,6 +201,17 @@ export default function SolicitudClient({ zonas, inicial }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 pb-8 lg:grid-cols-[minmax(0,1fr)_23rem]">
       <div className="space-y-6">
+        {hayAlgunaSimulacion && (
+          <div role="note" className="flex gap-3 border-2 border-tinta bg-seguridad/30 p-4">
+            <Info className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2.5} aria-hidden="true" />
+            <p className="text-sm">
+              <strong className="font-semibold">Proyecto académico.</strong> El envío de esta solicitud es
+              una simulación: no se manda ningún mensaje a un número de WhatsApp ni a un correo real. Al
+              enviarla verás cómo quedaría el mensaje.
+            </p>
+          </div>
+        )}
+
         {/* ---------- Empresa ---------- */}
         <Bloque titulo="Tu empresa" texto="Para saber a quién responder y a dónde enviar.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -393,8 +415,7 @@ export default function SolicitudClient({ zonas, inicial }) {
           <button
             type="button"
             onClick={() => enviar('whatsapp')}
-            disabled={!WHATSAPP_NUMERO}
-            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-seguridad px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:bg-tinta hover:text-seguridad disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-seguridad disabled:hover:text-tinta"
+            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-seguridad px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:bg-tinta hover:text-seguridad"
           >
             <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
             Enviar por WhatsApp
@@ -402,8 +423,7 @@ export default function SolicitudClient({ zonas, inicial }) {
           <button
             type="button"
             onClick={() => enviar('correo')}
-            disabled={!CORREO_SOLICITUDES}
-            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-tinta px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide text-papel transition-colors hover:bg-seguridad hover:text-tinta disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-tinta disabled:hover:text-papel"
+            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-tinta px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide text-papel transition-colors hover:bg-seguridad hover:text-tinta"
           >
             <Mail className="h-5 w-5" strokeWidth={2.5} />
             Enviar por correo
@@ -421,16 +441,23 @@ export default function SolicitudClient({ zonas, inicial }) {
             {aviso}
           </p>
 
-          {sinCanales && (
-            <p className="border-2 border-dashed border-alerta p-3 text-sm">
-              Los canales de envío no están configurados. Define NEXT_PUBLIC_WHATSAPP_NUMERO y
-              NEXT_PUBLIC_CORREO_SOLICITUDES para activar los botones.
-            </p>
+          {simulado && (
+            <div role="status" className="border-2 border-tinta bg-white">
+              <div className="flex items-start gap-2 border-b-2 border-tinta bg-seguridad px-3 py-2">
+                <Check className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={3} aria-hidden="true" />
+                <div>
+                  <p className="font-display text-lg font-bold uppercase leading-tight">Simulación completada</p>
+                  <p className="text-sm">Así se habría enviado por {simulado.canal}. No se envió nada.</p>
+                </div>
+              </div>
+              <pre className="whitespace-pre-wrap break-words p-3 font-sans text-sm">{simulado.texto}</pre>
+            </div>
           )}
 
           <p className="text-sm text-acero">
-            Esta solicitud no se guarda en el sitio: sale directo por el canal que elijas y desde ahí
-            se continúa la conversación.
+            {hayAlgunaSimulacion
+              ? 'Nada de esta solicitud se guarda ni se envía: es una simulación del flujo.'
+              : 'Esta solicitud no se guarda en el sitio: sale directo por el canal que elijas y desde ahí se continúa la conversación.'}
           </p>
 
           {vistaPrevia && (
