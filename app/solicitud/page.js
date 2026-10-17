@@ -35,8 +35,8 @@ export default async function SolicitudPage({ searchParams }) {
         </h1>
         <p className="text-lg leading-snug text-acero">
           Para cantidades que superan el stock del catálogo o artículos a la medida. Indica qué
-          necesitas y cuántas unidades; tu solicitud sale directo a nuestro equipo por WhatsApp o
-          correo.
+          necesitas y cuántas unidades, y se arma el mensaje de la solicitud para enviarlo por
+          WhatsApp o correo.
         </p>
       </header>
 
