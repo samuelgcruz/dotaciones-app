@@ -246,8 +246,18 @@ export default function CartDrawer() {
                     {formatoPrecio(total)}
                   </span>
                 </div>
-                <p className="mb-4 text-sm text-acero">
+                <p className="mb-1 text-sm text-acero">
                   El valor final se confirma con los precios vigentes al enviar el pedido.
+                </p>
+                <p className="mb-4 text-sm">
+                  ¿Necesitas más unidades de las disponibles?{' '}
+                  <Link
+                    href="/solicitud"
+                    onClick={cerrar}
+                    className="font-semibold underline underline-offset-4 hover:bg-tinta hover:text-papel"
+                  >
+                    Haz una solicitud especial
+                  </Link>
                 </p>
 
                 <div className="flex gap-3">

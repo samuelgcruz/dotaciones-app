@@ -48,7 +48,15 @@ export default function RootLayout({ children }) {
               </span>
             </Link>
 
-            <CartButton />
+            <div className="flex items-center gap-3 sm:gap-6">
+              <Link
+                href="/solicitud"
+                className="hidden font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:text-seguridad sm:block"
+              >
+                Solicitud especial
+              </Link>
+              <CartButton />
+            </div>
           </div>
           <div className="franja-peligro h-2" />
         </header>

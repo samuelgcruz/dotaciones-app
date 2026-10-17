@@ -1,5 +1,6 @@
 // app/page.js
 import { obtenerCategorias } from '@/lib/queries';
+import Link from 'next/link';
 import CategoryCard from '@/components/CategoryCard';
 
 const PASOS = [
@@ -46,6 +47,26 @@ export default async function HomePage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section aria-labelledby="volumen" className="zona-oscura mt-16 bg-grafito text-papel">
+        <div className="mx-auto grid max-w-[88rem] gap-6 px-4 py-10 sm:px-8 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div>
+            <h2 id="volumen" className="font-display text-4xl font-bold uppercase leading-none sm:text-5xl">
+              ¿Necesitas cientos de unidades?
+            </h2>
+            <p className="mt-3 max-w-2xl text-concreto">
+              Si tu pedido supera el stock del catálogo o necesitas algo a la medida, envíanos la lista
+              de artículos y cantidades como solicitud especial.
+            </p>
+          </div>
+          <Link
+            href="/solicitud"
+            className="inline-block bg-seguridad px-8 py-4 text-center font-display text-2xl font-semibold uppercase tracking-wide text-tinta transition-colors hover:bg-papel"
+          >
+            Hacer una solicitud especial
+          </Link>
+        </div>
       </section>
 
       <section aria-labelledby="como-se-pide" className="mx-auto max-w-[88rem] px-4 pt-16 sm:px-8">
