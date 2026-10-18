@@ -1,12 +1,12 @@
 // app/categoria/[slug]/CategoriaClient.jsx
-// Cuerpo de la zona. Las prendas se agrupan por tipo (camisas, pantalones...) y
-// la barra fija permite saltar a cada grupo o a los accesorios. Todo lo que se
-// elige va al carrito global (lib/carrito.js).
+// Cuerpo de la zona: barra de navegación fija (secciones + filtro por tipo de
+// prenda), fichas de prendas y fichas de accesorios. Todo lo que se elige va al
+// carrito global (lib/carrito.js), así que se conserva al cambiar de zona.
 'use client';
 
+import { useState } from 'react';
 import SizeSelector from '@/components/SizeSelector';
 import AccessoriesSelector from '@/components/AccessoriesSelector';
-import { etiquetaTipo } from '@/lib/formato';
 
 function Encabezado({ id, titulo, cantidad, texto }) {
   return (
@@ -20,7 +20,7 @@ function Encabezado({ id, titulo, cantidad, texto }) {
         </span>
         <span aria-hidden="true" className="mb-2 h-0.5 flex-1 bg-tinta" />
       </div>
-      {texto && <p className="mt-2 max-w-xl text-sm text-acero">{texto}</p>}
+      <p className="mt-2 max-w-xl text-sm text-acero">{texto}</p>
     </div>
   );
 }
@@ -28,64 +28,89 @@ function Encabezado({ id, titulo, cantidad, texto }) {
 export default function CategoriaClient({ categoria, productos, accesorios }) {
   const zona = { id: categoria.id, nombre: categoria.nombre, slug: categoria.slug };
 
-  // Grupos de prendas por tipo, en el orden en que aparecen
-  const grupos = [];
-  for (const p of productos) {
-    const etiqueta = etiquetaTipo(p.tipo_prenda);
-    let grupo = grupos.find((g) => g.etiqueta === etiqueta);
-    if (!grupo) {
-      grupo = { etiqueta, productos: [] };
-      grupos.push(grupo);
-    }
-    grupo.productos.push(p);
-  }
+  const [tipo, setTipo] = useState('todas');
+  const tipos = [...new Set(productos.map((p) => p.tipo_prenda))];
+  const visibles = tipo === 'todas' ? productos : productos.filter((p) => p.tipo_prenda === tipo);
 
-  const enlace = 'shrink-0 font-display text-xl font-bold uppercase leading-none underline-offset-4 hover:underline';
+  const claveChip = (activo) =>
+    `shrink-0 border-2 border-tinta px-3 py-1 text-sm font-semibold capitalize transition-colors ${
+      activo ? 'bg-tinta text-papel' : 'bg-white hover:bg-seguridad'
+    }`;
 
   return (
     <div>
+      {/* Barra fija: saltar entre secciones y filtrar prendas */}
       <div className="sticky top-[4.5rem] z-20 -mx-4 mb-10 border-y-2 border-tinta bg-papel px-4 sm:-mx-8 sm:px-8">
-        <nav aria-label="Secciones de la zona" className="flex gap-5 overflow-x-auto py-3">
-          {grupos.map((g, i) => (
-            <a key={g.etiqueta} href={`#grupo-${i}`} className={enlace}>
-              {g.etiqueta} ({g.productos.length})
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5">
+          <nav aria-label="Secciones de la zona" className="flex gap-4">
+            <a
+              href="#prendas"
+              className="font-display text-xl font-bold uppercase leading-none underline-offset-4 hover:underline"
+            >
+              Prendas ({productos.length})
             </a>
-          ))}
-          <a href="#accesorios" className={enlace}>
-            Accesorios ({accesorios.length})
-          </a>
-        </nav>
+            <a
+              href="#accesorios"
+              className="font-display text-xl font-bold uppercase leading-none underline-offset-4 hover:underline"
+            >
+              Accesorios ({accesorios.length})
+            </a>
+          </nav>
+
+          {tipos.length > 1 && (
+            <div role="group" aria-label="Filtrar prendas por tipo" className="flex gap-1.5 overflow-x-auto sm:ml-auto sm:flex-wrap">
+              <button
+                type="button"
+                aria-pressed={tipo === 'todas'}
+                onClick={() => setTipo('todas')}
+                className={claveChip(tipo === 'todas')}
+              >
+                Todas
+              </button>
+              {tipos.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={tipo === t}
+                  onClick={() => setTipo(t)}
+                  className={claveChip(tipo === t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-16">
-        {productos.length === 0 && (
-          <p className="border-2 border-tinta bg-papel p-8 text-acero">
-            Esta zona todavía no tiene prendas publicadas.
-          </p>
-        )}
+        <section id="prendas" aria-labelledby="titulo-prendas" className="scroll-mt-36">
+          <Encabezado
+            id="titulo-prendas"
+            titulo="Prendas"
+            cantidad={visibles.length}
+            texto="Elige una talla en cada prenda e indica cuántas unidades necesitas. Puedes pedir la misma prenda en varias tallas."
+          />
 
-        {grupos.map((g, i) => (
-          <section key={g.etiqueta} id={`grupo-${i}`} aria-labelledby={`titulo-grupo-${i}`} className="scroll-mt-32">
-            <Encabezado
-              id={`titulo-grupo-${i}`}
-              titulo={g.etiqueta}
-              cantidad={g.productos.length}
-              texto={i === 0 ? 'Elige la talla de cada prenda e indica cuántas unidades necesitas. Puedes pedir la misma prenda en varias tallas.' : undefined}
-            />
+          {productos.length === 0 ? (
+            <p className="border-2 border-tinta bg-papel p-8 text-acero">
+              Esta zona todavía no tiene prendas publicadas.
+            </p>
+          ) : (
             <div className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {g.productos.map((producto) => (
+              {visibles.map((producto) => (
                 <SizeSelector key={producto.id} producto={producto} categoria={zona} />
               ))}
             </div>
-          </section>
-        ))}
+          )}
+        </section>
 
-        <section id="accesorios" aria-labelledby="titulo-accesorios" className="scroll-mt-32">
+        <section id="accesorios" aria-labelledby="titulo-accesorios" className="scroll-mt-36">
           <Encabezado
             id="titulo-accesorios"
             titulo="Accesorios"
             cantidad={accesorios.length}
-            texto={`Complementos propios de ${categoria.nombre}. Búscalos por nombre, ordénalos por precio y agrégalos en la cantidad que necesites.`}
+            texto={`Complementos propios de ${categoria.nombre}. Súmalos en la cantidad que necesites.`}
           />
           <AccessoriesSelector accesorios={accesorios} categoria={zona} />
         </section>
