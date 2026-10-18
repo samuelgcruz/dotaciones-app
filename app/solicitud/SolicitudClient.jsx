@@ -1,14 +1,16 @@
 // app/solicitud/SolicitudClient.jsx
-// Formulario de solicitud especial. 100% frontend: arma un mensaje con los datos
-// de la empresa y la lista de artículos, y lo entrega por WhatsApp, correo o
-// portapapeles. No se guarda nada en la base de datos.
+// Solicitud especial armada por bloques según la necesidad (catálogo, equipos
+// completos o a la medida). 100% frontend: arma un mensaje y lo entrega por
+// WhatsApp, correo o portapapeles. No se guarda nada en la base de datos.
+// Si no hay número ni correo configurados (proyecto académico), el envío es una simulación.
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check, Copy, Info, Mail, MessageCircle, Plus, Trash2 } from 'lucide-react';
+import { Check, Copy, Info, Mail, MessageCircle, Package, Ruler, Users } from 'lucide-react';
 import { CORREO_SOLICITUDES, WHATSAPP_NUMERO } from '@/lib/contacto';
-
-const MAX_LINEAS = 20;
+import { formatoNumero, formatoPrecio } from '@/lib/formato';
+import { armarMensaje, bloqueNuevo, MAX_BLOQUES, resumenBloque, TIPOS_BLOQUE, validarDatos } from '@/lib/solicitud';
+import BloqueEditor, { Campo, baseInput, claseInput } from '@/components/SolicitudBloques';
 
 const PREFIJOS_PAIS = [
   { value: '+57', label: '+57 Colombia' },
@@ -22,13 +24,9 @@ const PREFIJOS_PAIS = [
   { value: '+1', label: '+1 EE. UU. / Canadá' },
 ];
 
-const baseInput =
-  'border-2 border-tinta bg-white px-3 py-2.5 text-base text-tinta placeholder:text-acero/70';
-const claseInput = `w-full ${baseInput}`;
+const ICONOS = { catalogo: Package, equipo: Users, medida: Ruler };
 
-const formatoNumero = new Intl.NumberFormat('es-CO');
-
-function Bloque({ titulo, texto, children }) {
+function Seccion({ titulo, texto, children }) {
   return (
     <section className="border-2 border-tinta bg-papel">
       <div className="border-b-2 border-tinta bg-grafito px-5 py-3 text-papel">
@@ -38,80 +36,6 @@ function Bloque({ titulo, texto, children }) {
       <div className="p-5">{children}</div>
     </section>
   );
-}
-
-function Campo({ id, etiqueta, error, children }) {
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-semibold">
-        {etiqueta}
-      </label>
-      {children}
-      {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm font-semibold text-alerta">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function fechaLegible(iso) {
-  const [a, m, d] = String(iso).split('-');
-  return a && m && d ? `${d}/${m}/${a}` : iso;
-}
-
-function validar(datos, lineas) {
-  const errores = {};
-  if (!datos.empresa.trim()) errores.empresa = 'Escribe el nombre de la empresa.';
-  if (!datos.contacto.trim()) errores.contacto = 'Escribe el nombre de la persona de contacto.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email.trim())) errores.email = 'Escribe un correo válido.';
-  if (datos.numero.replace(/\D/g, '').length < 7) errores.numero = 'Escribe un celular válido, sin el indicativo.';
-
-  const llenas = lineas.filter((l) => l.articulo.trim() || l.cantidad);
-  const porLinea = {};
-  for (const l of llenas) {
-    const e = {};
-    if (!l.articulo.trim()) e.articulo = 'Describe el artículo.';
-    if (!(Number(l.cantidad) >= 1)) e.cantidad = 'Indica la cantidad.';
-    if (Object.keys(e).length) porLinea[l.id] = e;
-  }
-  const completas = llenas.filter((l) => l.articulo.trim() && Number(l.cantidad) >= 1);
-  if (completas.length === 0) errores.lineas = 'Agrega al menos un artículo con su cantidad.';
-  if (Object.keys(porLinea).length) errores.porLinea = porLinea;
-
-  return { errores, completas, hay: Object.keys(errores).length > 0 };
-}
-
-function armarMensaje(formato, datos, completas, zonaPorId) {
-  const n = (t) => (formato === 'whatsapp' ? `*${t}*` : t);
-  const filas = [
-    n('SOLICITUD ESPECIAL DE DOTACIÓN'),
-    '',
-    `${n('Empresa:')} ${datos.empresa.trim()}`,
-    datos.nit.trim() ? `${n('NIT:')} ${datos.nit.trim()}` : null,
-    `${n('Contacto:')} ${datos.contacto.trim()}`,
-    `${n('Correo:')} ${datos.email.trim()}`,
-    `${n('Celular:')} ${datos.prefijo} ${datos.numero.replace(/\D/g, '')}`,
-    datos.ciudad.trim() ? `${n('Ciudad de entrega:')} ${datos.ciudad.trim()}` : null,
-    datos.fecha ? `${n('Fecha requerida:')} ${fechaLegible(datos.fecha)}` : null,
-    '',
-    n('Artículos solicitados:'),
-  ];
-
-  completas.forEach((l, i) => {
-    const zona = l.zonaId ? zonaPorId.get(l.zonaId) : null;
-    const extras = [zona ? `zona ${zona}` : '', l.detalle.trim()].filter(Boolean).join('; ');
-    filas.push(
-      `${i + 1}. ${l.articulo.trim()}: ${formatoNumero.format(Number(l.cantidad))} unidades${extras ? ` (${extras})` : ''}`
-    );
-  });
-
-  const total = completas.reduce((acc, l) => acc + Number(l.cantidad), 0);
-  filas.push('', `${n('Total:')} ${formatoNumero.format(total)} unidades en ${completas.length} ${completas.length === 1 ? 'artículo' : 'artículos'}`);
-  if (datos.notas.trim()) filas.push('', `${n('Notas:')} ${datos.notas.trim()}`);
-
-  return filas.filter((f) => f !== null).join('\n');
 }
 
 export default function SolicitudClient({ zonas, inicial }) {
@@ -126,35 +50,46 @@ export default function SolicitudClient({ zonas, inicial }) {
     fecha: '',
     notas: '',
   });
-  const [lineas, setLineas] = useState(() => [
-    { id: 1, zonaId: inicial.zonaId, articulo: inicial.articulo, cantidad: '', detalle: '' },
-  ]);
+
+  // Si llegó desde una ficha del catálogo, arranca con ese artículo ya elegido
+  const [bloques, setBloques] = useState(() =>
+    inicial.zonaId
+      ? [
+          bloqueNuevo('catalogo', 1, {
+            zonaId: inicial.zonaId,
+            articuloKey: inicial.articuloKey,
+            tallas: inicial.tallaId ? { [inicial.tallaId]: '' } : {},
+          }),
+        ]
+      : []
+  );
   const siguienteId = useRef(2);
   const [intento, setIntento] = useState(false);
   const [aviso, setAviso] = useState('');
-  const [simulado, setSimulado] = useState(null); // { canal, texto } cuando el envío es una simulación
+  const [simulado, setSimulado] = useState(null);
 
-  const zonaPorId = new Map(zonas.map((z) => [z.id, z.nombre]));
-  const { errores, completas, hay } = validar(datos, lineas);
-  const totalUnidades = completas.reduce((acc, l) => acc + Number(l.cantidad), 0);
-  // Sin número ni correo configurados (proyecto académico) el envío es una simulación
+  const zonaPorId = new Map(zonas.map((z) => [z.id, z]));
+  const resumenes = bloques.map((b) => resumenBloque(b, zonaPorId));
+  const listos = resumenes.filter((r) => r.listo);
+  const erroresDatos = validarDatos(datos);
+  const hay =
+    Object.keys(erroresDatos).length > 0 || bloques.length === 0 || resumenes.some((r) => !r.listo);
+
+  const totalUnidades = listos.reduce((acc, r) => acc + r.total, 0);
+  const referencia = listos.reduce((acc, r) => acc + r.referencia, 0);
   const hayAlgunaSimulacion = !WHATSAPP_NUMERO || !CORREO_SOLICITUDES;
 
   const campo = (nombre) => (e) => setDatos((prev) => ({ ...prev, [nombre]: e.target.value }));
-  const errorDe = (nombre) => (intento ? errores[nombre] : undefined);
+  const errorDe = (nombre) => (intento ? erroresDatos[nombre] : undefined);
 
-  function cambiarLinea(id, cambios) {
-    setLineas((prev) => prev.map((l) => (l.id === id ? { ...l, ...cambios } : l)));
+  function agregarBloque(tipo) {
+    setBloques((prev) => (prev.length >= MAX_BLOQUES ? prev : [...prev, bloqueNuevo(tipo, siguienteId.current++)]));
   }
-  function agregarLinea() {
-    setLineas((prev) =>
-      prev.length >= MAX_LINEAS
-        ? prev
-        : [...prev, { id: siguienteId.current++, zonaId: '', articulo: '', cantidad: '', detalle: '' }]
-    );
+  function cambiarBloque(id, cambios) {
+    setBloques((prev) => prev.map((b) => (b.id === id ? { ...b, ...cambios } : b)));
   }
-  function quitarLinea(id) {
-    setLineas((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
+  function quitarBloque(id) {
+    setBloques((prev) => prev.filter((b) => b.id !== id));
   }
 
   async function enviar(canal) {
@@ -164,20 +99,16 @@ export default function SolicitudClient({ zonas, inicial }) {
     if (hay) return;
 
     if (canal === 'whatsapp') {
-      const texto = armarMensaje('whatsapp', datos, completas, zonaPorId);
+      const texto = armarMensaje('whatsapp', datos, resumenes);
       if (!WHATSAPP_NUMERO) {
         setSimulado({ canal: 'WhatsApp', texto });
         return;
       }
-      window.open(
-        `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
+      window.open(`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
       return;
     }
 
-    const texto = armarMensaje('texto', datos, completas, zonaPorId);
+    const texto = armarMensaje('texto', datos, resumenes);
     if (canal === 'correo') {
       if (!CORREO_SOLICITUDES) {
         setSimulado({ canal: 'correo', texto });
@@ -196,7 +127,32 @@ export default function SolicitudClient({ zonas, inicial }) {
     }
   }
 
-  const vistaPrevia = !hay ? armarMensaje('texto', datos, completas, zonaPorId) : '';
+  const vistaPrevia = !hay ? armarMensaje('texto', datos, resumenes) : '';
+
+  function opciones(compacto) {
+    return (
+      <div className={`grid grid-cols-1 gap-3 ${compacto ? 'sm:grid-cols-3' : 'md:grid-cols-3'}`}>
+        {Object.entries(TIPOS_BLOQUE).map(([tipo, meta]) => {
+          const Icono = ICONOS[tipo];
+          return (
+            <button
+              key={tipo}
+              type="button"
+              onClick={() => agregarBloque(tipo)}
+              disabled={bloques.length >= MAX_BLOQUES}
+              className="flex items-start gap-3 border-2 border-tinta bg-white p-4 text-left transition-colors hover:bg-seguridad disabled:opacity-40 disabled:hover:bg-white"
+            >
+              <Icono className="mt-0.5 h-6 w-6 shrink-0" strokeWidth={2} aria-hidden="true" />
+              <span>
+                <span className="block font-display text-xl font-bold uppercase leading-tight">{meta.titulo}</span>
+                <span className="mt-1 block text-sm text-acero">{meta.ayuda}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 pb-8 lg:grid-cols-[minmax(0,1fr)_23rem]">
@@ -212,8 +168,48 @@ export default function SolicitudClient({ zonas, inicial }) {
           </div>
         )}
 
+        {/* ---------- Necesidades ---------- */}
+        <Seccion
+          titulo="Qué necesitas"
+          texto="Agrega una parte por cada necesidad. Puedes combinar varias en la misma solicitud."
+        >
+          {bloques.length === 0 ? (
+            <>
+              <p className="mb-4 text-sm font-semibold">¿Qué tipo de necesidad quieres agregar primero?</p>
+              {opciones(false)}
+            </>
+          ) : (
+            <>
+              <ul className="space-y-4">
+                {bloques.map((b, i) => (
+                  <BloqueEditor
+                    key={b.id}
+                    bloque={b}
+                    indice={i}
+                    zonas={zonas}
+                    zonaPorId={zonaPorId}
+                    resumen={resumenes[i]}
+                    intento={intento}
+                    onCambiar={(cambios) => cambiarBloque(b.id, cambios)}
+                    onQuitar={() => quitarBloque(b.id)}
+                  />
+                ))}
+              </ul>
+              <div className="mt-6 border-t-2 border-dashed border-tinta/40 pt-4">
+                <p className="mb-3 text-sm font-semibold">Agregar otra necesidad</p>
+                {opciones(true)}
+              </div>
+            </>
+          )}
+          {intento && bloques.length === 0 && (
+            <p role="alert" className="mt-3 text-sm font-semibold text-alerta">
+              Agrega al menos una necesidad.
+            </p>
+          )}
+        </Seccion>
+
         {/* ---------- Empresa ---------- */}
-        <Bloque titulo="Tu empresa" texto="Para saber a quién responder y a dónde enviar.">
+        <Seccion titulo="Tu empresa" texto="Para saber a quién responder y a dónde enviar.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo id="empresa" etiqueta="Empresa" error={errorDe('empresa')}>
               <input id="empresa" type="text" autoComplete="organization" value={datos.empresa} onChange={campo('empresa')} className={claseInput} />
@@ -229,135 +225,24 @@ export default function SolicitudClient({ zonas, inicial }) {
             </Campo>
             <Campo id="numero" etiqueta="Celular de contacto" error={errorDe('numero')}>
               <div className="flex gap-2">
-                <select
-                  aria-label="Indicativo del país"
-                  value={datos.prefijo}
-                  onChange={campo('prefijo')}
-                  className={`${baseInput} w-40 shrink-0`}
-                >
+                <select aria-label="Indicativo del país" value={datos.prefijo} onChange={campo('prefijo')} className={`${baseInput} w-40 shrink-0`}>
                   {PREFIJOS_PAIS.map((p) => (
                     <option key={p.value} value={p.value}>
                       {p.label}
                     </option>
                   ))}
                 </select>
-                <input
-                  id="numero"
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel-national"
-                  value={datos.numero}
-                  onChange={campo('numero')}
-                  className={`${baseInput} min-w-0 flex-1`}
-                />
+                <input id="numero" type="tel" inputMode="numeric" autoComplete="tel-national" value={datos.numero} onChange={campo('numero')} className={`${baseInput} min-w-0 flex-1`} />
               </div>
             </Campo>
             <Campo id="ciudad" etiqueta="Ciudad de entrega (opcional)">
               <input id="ciudad" type="text" autoComplete="address-level2" value={datos.ciudad} onChange={campo('ciudad')} className={claseInput} />
             </Campo>
           </div>
-        </Bloque>
+        </Seccion>
 
-        {/* ---------- Artículos ---------- */}
-        <Bloque titulo="Qué necesitas" texto="Un renglón por artículo. Puedes pedir las cantidades que haga falta.">
-          <ul className="space-y-4">
-            {lineas.map((l, i) => {
-              const e = intento ? errores.porLinea?.[l.id] : undefined;
-              return (
-                <li key={l.id} className="border-2 border-tinta bg-white">
-                  <div className="flex items-center justify-between border-b-2 border-tinta bg-concreto px-3 py-1.5">
-                    <span className="font-display text-lg font-bold uppercase leading-none">Artículo {i + 1}</span>
-                    {lineas.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => quitarLinea(l.id)}
-                        aria-label={`Quitar el artículo ${i + 1}`}
-                        className="grid h-8 w-8 place-items-center transition-colors hover:bg-tinta hover:text-papel"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-[minmax(0,1fr)_11rem]">
-                    <Campo id={`articulo-${l.id}`} etiqueta="Artículo o descripción" error={e?.articulo}>
-                      <input
-                        id={`articulo-${l.id}`}
-                        type="text"
-                        maxLength={160}
-                        placeholder="Ej. Chaleco reflectivo con logo"
-                        value={l.articulo}
-                        onChange={(ev) => cambiarLinea(l.id, { articulo: ev.target.value })}
-                        className={claseInput}
-                      />
-                    </Campo>
-
-                    <Campo id={`cantidad-${l.id}`} etiqueta="Cantidad" error={e?.cantidad}>
-                      <input
-                        id={`cantidad-${l.id}`}
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={l.cantidad}
-                        onChange={(ev) =>
-                          cambiarLinea(l.id, { cantidad: ev.target.value.replace(/\D/g, '').slice(0, 6) })
-                        }
-                        className="w-full border-2 border-tinta bg-white px-3 py-2 font-display text-3xl font-bold leading-none tabular-nums text-tinta placeholder:text-acero/70"
-                      />
-                    </Campo>
-
-                    <Campo id={`zona-${l.id}`} etiqueta="Zona de trabajo (opcional)">
-                      <select
-                        id={`zona-${l.id}`}
-                        value={l.zonaId}
-                        onChange={(ev) => cambiarLinea(l.id, { zonaId: ev.target.value })}
-                        className={claseInput}
-                      >
-                        <option value="">Sin zona específica</option>
-                        {zonas.map((z) => (
-                          <option key={z.id} value={z.id}>
-                            {z.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </Campo>
-
-                    <Campo id={`detalle-${l.id}`} etiqueta="Tallas, colores o detalles (opcional)">
-                      <input
-                        id={`detalle-${l.id}`}
-                        type="text"
-                        maxLength={200}
-                        placeholder="Ej. 40 S, 100 M, 60 L; color azul"
-                        value={l.detalle}
-                        onChange={(ev) => cambiarLinea(l.id, { detalle: ev.target.value })}
-                        className={claseInput}
-                      />
-                    </Campo>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-
-          {intento && errores.lineas && (
-            <p role="alert" className="mt-3 text-sm font-semibold text-alerta">
-              {errores.lineas}
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={agregarLinea}
-            disabled={lineas.length >= MAX_LINEAS}
-            className="mt-4 flex w-full items-center justify-center gap-2 border-2 border-dashed border-tinta py-3 font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:bg-seguridad disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-          >
-            <Plus className="h-5 w-5" strokeWidth={3} />
-            Agregar otro artículo
-          </button>
-        </Bloque>
-
-        {/* ---------- Entrega y notas ---------- */}
-        <Bloque titulo="Plazos y requerimientos">
+        {/* ---------- Plazos ---------- */}
+        <Seccion titulo="Plazos y requerimientos">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[14rem_minmax(0,1fr)]">
             <Campo id="fecha" etiqueta="Fecha en que lo necesitas (opcional)">
               <input id="fecha" type="date" value={datos.fecha} onChange={campo('fecha')} className={claseInput} />
@@ -374,34 +259,37 @@ export default function SolicitudClient({ zonas, inicial }) {
               />
             </Campo>
           </div>
-        </Bloque>
+        </Seccion>
       </div>
 
       {/* ---------- Resumen y envío ---------- */}
       <aside aria-label="Resumen de la solicitud" className="border-2 border-tinta bg-papel lg:sticky lg:top-28">
         <div className="border-b-2 border-tinta bg-seguridad px-5 py-4">
           <p className="text-sm font-semibold">Total solicitado</p>
-          <p className="font-display text-6xl font-extrabold leading-none tabular-nums">
-            {formatoNumero.format(totalUnidades)}
-          </p>
+          <p className="font-display text-6xl font-extrabold leading-none tabular-nums">{formatoNumero(totalUnidades)}</p>
           <p className="mt-1 text-sm">
-            {completas.length === 0
-              ? 'Aún no hay artículos completos'
-              : `unidades en ${completas.length} ${completas.length === 1 ? 'artículo' : 'artículos'}`}
+            {listos.length === 0
+              ? 'Aún no hay necesidades completas'
+              : `unidades en ${listos.length} ${listos.length === 1 ? 'necesidad' : 'necesidades'}`}
           </p>
         </div>
 
-        {completas.length > 0 && (
-          <ul className="divide-y divide-dashed divide-tinta/30 border-b-2 border-tinta px-5">
-            {completas.map((l) => (
-              <li key={l.id} className="flex items-baseline justify-between gap-3 py-2.5 text-sm">
-                <span className="min-w-0 truncate">{l.articulo}</span>
-                <span className="shrink-0 font-display text-lg font-bold tabular-nums">
-                  {formatoNumero.format(Number(l.cantidad))}
-                </span>
-              </li>
-            ))}
-          </ul>
+        {listos.length > 0 && (
+          <div className="border-b-2 border-tinta px-5">
+            <ul className="divide-y divide-dashed divide-tinta/30">
+              {listos.map((r, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-3 py-2.5 text-sm">
+                  <span className="min-w-0">{r.etiqueta}</span>
+                  <span className="shrink-0 font-display text-lg font-bold tabular-nums">{formatoNumero(r.total)}</span>
+                </li>
+              ))}
+            </ul>
+            {referencia > 0 && (
+              <p className="border-t border-dashed border-tinta/30 py-3 text-xs text-acero">
+                Referencia a precios de catálogo: {formatoPrecio(referencia)}. El valor final se cotiza.
+              </p>
+            )}
+          </div>
         )}
 
         <div className="space-y-3 p-5">
@@ -462,12 +350,8 @@ export default function SolicitudClient({ zonas, inicial }) {
 
           {vistaPrevia && (
             <details className="border-2 border-tinta bg-white">
-              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">
-                Ver el mensaje que se enviará
-              </summary>
-              <pre className="whitespace-pre-wrap break-words border-t-2 border-tinta p-3 font-sans text-sm">
-                {vistaPrevia}
-              </pre>
+              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Ver el mensaje que se enviará</summary>
+              <pre className="whitespace-pre-wrap break-words border-t-2 border-tinta p-3 font-sans text-sm">{vistaPrevia}</pre>
             </details>
           )}
         </div>

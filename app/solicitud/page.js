@@ -1,23 +1,59 @@
 // app/solicitud/page.js
-// Solicitud especial: pedidos por volumen o fuera del stock del catálogo.
-// Solo lee las zonas (para el selector); no escribe nada en la base de datos.
+// Solicitud especial: pedidos por volumen, equipos completos o artículos a la medida.
+// Solo LEE el catálogo (para que la empresa elija artículos reales); no escribe nada en la BD.
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { obtenerCategorias } from '@/lib/queries';
+import { obtenerCatalogoCompleto } from '@/lib/queries';
+import { compararNombresTalla, etiquetaTipo } from '@/lib/formato';
 import SolicitudClient from './SolicitudClient';
 
 export const metadata = {
   title: 'Solicitud especial | Dotaciones y Uniformes',
-  description: 'Pide cantidades que superan el stock del catálogo o artículos a la medida.',
+  description: 'Pide cantidades que superan el stock del catálogo, equipos completos o artículos a la medida.',
 };
 
 export default async function SolicitudPage({ searchParams }) {
   const params = await searchParams;
-  const categorias = await obtenerCategorias();
+  const catalogo = await obtenerCatalogoCompleto();
 
-  // Permite llegar desde una ficha con la zona y el artículo ya rellenados
-  const zona = typeof params?.zona === 'string' ? categorias.find((c) => c.slug === params.zona) : null;
-  const articulo = typeof params?.articulo === 'string' ? params.articulo.slice(0, 120) : '';
+  // Solo datos simples y serializables para el cliente
+  const zonas = catalogo.map(({ categoria, productos, accesorios }) => ({
+    id: categoria.id,
+    nombre: categoria.nombre,
+    slug: categoria.slug,
+    prendas: productos.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      tipo: etiquetaTipo(p.tipo_prenda),
+      descripcion: p.descripcion ?? '',
+      precio: Number(p.precio_base),
+      tallas: [...p.producto_tallas]
+        .sort((a, b) => compararNombresTalla(a.tallas.nombre, b.tallas.nombre))
+        .map((pt) => ({ id: pt.tallas.id, nombre: pt.tallas.nombre, stock: pt.stock })),
+    })),
+    accesorios: accesorios.map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      descripcion: a.descripcion ?? '',
+      precio: Number(a.precio),
+    })),
+  }));
+
+  // Si llega desde una ficha del catálogo, ya viene la zona, el artículo y la talla elegidos
+  const texto = (v) => (typeof v === 'string' ? v : '');
+  const zona = zonas.find((z) => z.slug === texto(params?.zona));
+  let articuloKey = '';
+  let tallaId = '';
+  if (zona) {
+    const prenda = zona.prendas.find((p) => p.id === texto(params?.producto));
+    const accesorio = zona.accesorios.find((a) => a.id === texto(params?.accesorio));
+    if (prenda) {
+      articuloKey = `p:${prenda.id}`;
+      tallaId = prenda.tallas.find((t) => t.id === texto(params?.talla))?.id ?? '';
+    } else if (accesorio) {
+      articuloKey = `a:${accesorio.id}`;
+    }
+  }
 
   return (
     <div className="mx-auto max-w-[88rem] px-4 pt-6 sm:px-8 sm:pt-8">
@@ -34,16 +70,12 @@ export default async function SolicitudPage({ searchParams }) {
           Solicitud especial
         </h1>
         <p className="text-lg leading-snug text-acero">
-          Para cantidades que superan el stock del catálogo o artículos a la medida. Indica qué
-          necesitas y cuántas unidades, y se arma el mensaje de la solicitud para enviarlo por
-          WhatsApp o correo.
+          Arma tu solicitud por partes, según lo que necesites: más unidades de un artículo del
+          catálogo, equipos completos para una zona o algo a la medida. Puedes combinar varias.
         </p>
       </header>
 
-      <SolicitudClient
-        zonas={categorias.map((c) => ({ id: c.id, nombre: c.nombre }))}
-        inicial={{ zonaId: zona?.id ?? '', articulo }}
-      />
+      <SolicitudClient zonas={zonas} inicial={{ zonaId: zona?.id ?? '', articuloKey, tallaId }} />
     </div>
   );
 }

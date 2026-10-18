@@ -209,9 +209,11 @@ export default function CartDrawer() {
                                       compacto
                                       cantidad={l.cantidad}
                                       etiqueta={etiqueta}
+                                      max={Math.min(l.stock ?? 99, 99)}
                                       puedeSumar={l.cantidad < Math.min(l.stock ?? 99, 99)}
                                       onMenos={() => ajustarLinea(l, -1)}
                                       onMas={() => ajustarLinea(l, 1)}
+                                      onFijar={(n) => ajustarLinea(l, n - l.cantidad)}
                                     />
                                   </div>
                                   <span className="font-display text-xl font-semibold tabular-nums">
