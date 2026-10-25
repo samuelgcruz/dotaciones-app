@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { claveLinea, useCarrito } from '@/lib/carrito';
 import { hrefSolicitud } from '@/lib/contacto';
 import { compararNombresTalla, ETIQUETA_GENERO, etiquetaTipo, formatoPrecio } from '@/lib/formato';
+import BotonGuiaTallas from './BotonGuiaTallas';
 import ControlCantidad from './ControlCantidad';
 
 const STOCK_BAJO = 3;
@@ -120,7 +121,10 @@ function PanelPrenda({ producto, categoria, compacto }) {
         ) : (
           <>
             <div>
-              <p className="mb-2 text-sm font-semibold">1. Elige la talla</p>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <p className="text-sm font-semibold">1. Elige la talla</p>
+                <BotonGuiaTallas genero={producto.genero === 'hombre' ? 'hombre' : 'mujer'} />
+              </div>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-2">
                 {tallas.map((pt) => {
                   const cant = cantidadDe(claveLinea('producto', producto.id, pt.tallas.id));

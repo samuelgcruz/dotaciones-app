@@ -1,7 +1,8 @@
 // components/AccessoriesSelector.jsx
 // Accesorios de la zona como lista de pedido: miniatura, nombre y descripción,
-// precio y cantidad en una misma fila. Incluye buscador, orden y un filtro para
-// ver solo los que ya están en el pedido.
+// precio y cantidad en una misma fila. Se filtra con el buscador de la zona (prop `consulta`,
+// búsqueda inteligente de lib/busqueda.js) y tiene orden y un filtro para ver solo los
+// que ya están en el pedido.
 // Los accesorios son independientes del género: no se filtran por Mujer/Hombre. Solo los
 // que están marcados con requiere_talla (por ejemplo unos guantes) piden elegir una talla;
 // los demás se agregan directo.
@@ -10,8 +11,10 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Package, Plus, Search } from 'lucide-react';
+import { Package, Plus } from 'lucide-react';
+import { buscar } from '@/lib/busqueda';
 import { claveLinea, useCarrito } from '@/lib/carrito';
+import { textoBuscable } from '@/lib/catalogo';
 import { hrefSolicitud } from '@/lib/contacto';
 import { compararNombresTalla, formatoPrecio } from '@/lib/formato';
 import ControlCantidad from './ControlCantidad';
@@ -24,11 +27,10 @@ const ORDENES = {
   mayor: { etiqueta: 'Precio: mayor a menor', comparar: (a, b) => Number(b.precio) - Number(a.precio) },
 };
 
-export default function AccessoriesSelector({ accesorios, categoria, tallas = [] }) {
+export default function AccessoriesSelector({ accesorios, categoria, tallas = [], consulta = '' }) {
   const { lineas, cantidadDe, ajustarLinea } = useCarrito();
   const [tallaElegida, setTallaElegida] = useState({}); // accesorioId → tallaId
   const tallasOrdenadas = [...tallas].sort((a, b) => compararNombresTalla(a.nombre, b.nombre));
-  const [busqueda, setBusqueda] = useState('');
   const [orden, setOrden] = useState('nombre');
   const [soloAgregados, setSoloAgregados] = useState(false);
 
@@ -41,33 +43,21 @@ export default function AccessoriesSelector({ accesorios, categoria, tallas = []
     lineas.filter((l) => l.tipo === 'accesorio' && l.id === a.id).reduce((acc, l) => acc + l.cantidad, 0);
   const agregados = accesorios.filter((a) => unidadesDe(a) > 0).length;
 
-  const termino = busqueda.trim().toLowerCase();
-  const visibles = accesorios
-    .filter((a) => !termino || `${a.nombre} ${a.descripcion ?? ''}`.toLowerCase().includes(termino))
+  const termino = consulta.trim();
+  const porNombre = ORDENES[orden].comparar;
+  const visibles = buscar(
+    accesorios,
+    termino,
+    (a) => textoBuscable({ nombre: a.nombre, descripcion: a.descripcion, tipo: 'accesorio' })
+  )
+    .map((r) => r.item)
     .filter((a) => !soloAgregados || unidadesDe(a) > 0)
-    .sort(ORDENES[orden].comparar);
+    .sort(porNombre);
 
   return (
     <div>
       {/* Herramientas de la lista */}
       <div className="mb-3 flex flex-wrap items-end gap-x-4 gap-y-3">
-        <div className="min-w-0 flex-1 basis-56">
-          <label htmlFor="buscar-accesorio" className="mb-1 block text-sm font-semibold">
-            Buscar accesorio
-          </label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-acero" />
-            <input
-              id="buscar-accesorio"
-              type="search"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Escribe un nombre"
-              className="w-full border-2 border-tinta bg-white py-2.5 pl-9 pr-3 text-base"
-            />
-          </div>
-        </div>
-
         <div>
           <label htmlFor="orden-accesorios" className="mb-1 block text-sm font-semibold">
             Ordenar por
@@ -101,7 +91,7 @@ export default function AccessoriesSelector({ accesorios, categoria, tallas = []
         <p className="border-2 border-tinta bg-papel p-6 text-acero">
           {soloAgregados && !termino
             ? 'Todavía no agregaste accesorios de esta zona.'
-            : 'Ningún accesorio coincide con tu búsqueda.'}
+            : `Ningún accesorio coincide con «${termino}».`}
         </p>
       ) : (
         <div className="border-2 border-tinta bg-papel">
@@ -146,7 +136,8 @@ export default function AccessoriesSelector({ accesorios, categoria, tallas = []
               return (
                 <li
                   key={accesorio.id}
-                  className={`grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-3 md:grid-cols-[4.5rem_minmax(0,1fr)_7rem_17rem] md:items-start ${
+                  id={`acc-${accesorio.id}`}
+                  className={`scroll-mt-44 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-3 md:grid-cols-[4.5rem_minmax(0,1fr)_7rem_17rem] md:items-start ${
                     unidades > 0 ? 'bg-seguridad/25' : ''
                   }`}
                 >

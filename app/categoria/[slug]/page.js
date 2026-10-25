@@ -4,8 +4,9 @@ import { ArrowLeft } from 'lucide-react';
 import { obtenerCategoriaConDetalle, obtenerCategorias, obtenerTallas } from '@/lib/queries';
 import CategoriaClient from './CategoriaClient';
 
-export default async function CategoriaPage({ params }) {
+export default async function CategoriaPage({ params, searchParams }) {
   const { slug } = await params;
+  const { q = '' } = await searchParams; // viene del buscador de inicio o de una sugerencia
 
   const [{ categoria, productos, accesorios }, categorias] = await Promise.all([
     obtenerCategoriaConDetalle(slug),
@@ -69,7 +70,7 @@ export default async function CategoriaPage({ params }) {
         </div>
       </header>
 
-      <CategoriaClient categoria={categoria} productos={productos} accesorios={accesorios} tallas={tallas} />
+      <CategoriaClient categoria={categoria} productos={productos} accesorios={accesorios} tallas={tallas} consultaInicial={String(q).slice(0, 80)} />
     </div>
   );
 }

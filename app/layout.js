@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Barlow_Condensed, IBM_Plex_Sans } from 'next/font/google';
 import { HardHat } from 'lucide-react';
 import CartButton from '@/components/CartButton';
+import MenuPrincipal from '@/components/MenuPrincipal';
 import CartBar from '@/components/CartBar';
 import CartDrawer from '@/components/CartDrawer';
 
@@ -49,12 +50,7 @@ export default function RootLayout({ children }) {
             </Link>
 
             <div className="flex items-center gap-3 sm:gap-6">
-              <Link
-                href="/solicitud"
-                className="hidden font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:text-seguridad sm:block"
-              >
-                Solicitud especial
-              </Link>
+              <MenuPrincipal />
               <CartButton />
             </div>
           </div>
@@ -68,7 +64,12 @@ export default function RootLayout({ children }) {
             <span className="font-display text-xl font-bold uppercase tracking-wide text-papel">
               Dotaciones
             </span>
-            <span>
+            <nav aria-label="Más información" className="flex flex-wrap gap-x-6 gap-y-2 text-papel">
+              <Link href="/guia-tallas" className="underline-offset-4 hover:underline">Guía de tallas</Link>
+              <Link href="/sugerencias" className="underline-offset-4 hover:underline">Sugerir un producto</Link>
+              <Link href="/solicitud" className="underline-offset-4 hover:underline">Solicitud especial</Link>
+            </nav>
+            <span className="w-full">
               © {new Date().getFullYear()} Dotaciones y Uniformes. Dotación profesional para tu equipo.
             </span>
           </div>

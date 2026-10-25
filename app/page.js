@@ -1,7 +1,11 @@
 // app/page.js
-import { obtenerCategorias } from '@/lib/queries';
+import { obtenerCategorias, obtenerCatalogoCompleto } from '@/lib/queries';
 import Link from 'next/link';
+import { Lightbulb, Ruler, ClipboardList } from 'lucide-react';
+import BuscadorGlobal from '@/components/BuscadorGlobal';
 import CategoryCard from '@/components/CategoryCard';
+import { construirIndiceBusqueda } from '@/lib/catalogo';
+import { construirZonas } from '@/lib/solicitud';
 
 const PASOS = [
   { titulo: 'Elige la zona', texto: 'Cada zona de trabajo tiene sus propias prendas y accesorios.' },
@@ -9,8 +13,23 @@ const PASOS = [
   { titulo: 'Envía el pedido', texto: 'Revisa el resumen, deja tus datos de contacto y te escribimos.' },
 ];
 
-export default async function HomePage() {
-  const categorias = await obtenerCategorias();
+const HERRAMIENTAS = [
+  { href: '/guia-tallas', icono: Ruler, titulo: 'Guía de tallas', texto: 'Calculadora de talla, equivalencias por país y cómo medirte.' },
+  { href: '/sugerencias', icono: Lightbulb, titulo: 'Sugerir un producto', texto: '¿Echas de menos una prenda o un accesorio? Cuéntanos y lo evaluamos.' },
+  { href: '/solicitud', icono: ClipboardList, titulo: 'Solicitud especial', texto: 'Grandes volúmenes, equipos completos o algo a la medida.' },
+];
+
+export default async function HomePage({ searchParams }) {
+  const { q = '' } = await searchParams;
+  const [categorias, catalogo] = await Promise.all([
+    obtenerCategorias(),
+    // Si el catálogo completo falla, la página sigue funcionando sin el buscador
+    obtenerCatalogoCompleto().catch((error) => {
+      console.error('No se pudo armar el índice de búsqueda:', error);
+      return null;
+    }),
+  ]);
+  const indice = catalogo ? construirIndiceBusqueda(construirZonas(catalogo)) : [];
 
   return (
     <div>
@@ -25,6 +44,14 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
+
+      {indice.length > 0 && (
+        <section aria-label="Buscar en el catálogo" className="mx-auto max-w-[88rem] px-4 pt-8 sm:px-8">
+          <div className="max-w-3xl">
+            <BuscadorGlobal indice={indice} consultaInicial={String(q).slice(0, 80)} />
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="zonas" className="mx-auto max-w-[88rem] px-4 pt-10 sm:px-8 sm:pt-12">
         <div className="mb-4 flex items-end justify-between gap-4">
@@ -47,6 +74,23 @@ export default async function HomePage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section aria-labelledby="herramientas" className="mx-auto max-w-[88rem] px-4 pt-16 sm:px-8">
+        <h2 id="herramientas" className="mb-4 font-display text-3xl font-bold uppercase leading-none">
+          Herramientas
+        </h2>
+        <ul className="grid gap-4 md:grid-cols-3">
+          {HERRAMIENTAS.map(({ href, icono: Icono, titulo, texto }) => (
+            <li key={href}>
+              <Link href={href} className="group flex h-full flex-col gap-2 border-2 border-tinta bg-papel p-5 transition-colors hover:bg-seguridad">
+                <Icono className="h-7 w-7" strokeWidth={2.25} aria-hidden="true" />
+                <span className="font-display text-2xl font-bold uppercase leading-none">{titulo}</span>
+                <span className="text-sm text-acero group-hover:text-tinta">{texto}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section aria-labelledby="volumen" className="zona-oscura mt-16 bg-grafito text-papel">
