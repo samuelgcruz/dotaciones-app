@@ -1,13 +1,13 @@
 // app/solicitud/SolicitudClient.jsx
 // Solicitud especial armada por bloques según la necesidad (catálogo, equipos
-// completos o a la medida). 100% frontend: arma un mensaje y lo entrega por
-// WhatsApp, correo o portapapeles. No se guarda nada en la base de datos.
-// Si no hay número ni correo configurados (proyecto académico), el envío es una simulación.
+// completos o a la medida). Al enviarla se GUARDA en la base de datos
+// (POST /api/solicitudes → tabla solicitudes_especiales) y la pantalla muestra el
+// código de seguimiento. No se manda a ningún WhatsApp ni correo real (proyecto académico).
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check, Copy, Info, Mail, MessageCircle, Package, Ruler, Users } from 'lucide-react';
-import { CORREO_SOLICITUDES, WHATSAPP_NUMERO } from '@/lib/contacto';
+import Link from 'next/link';
+import { Check, Copy, Info, Loader2, Package, Ruler, Send, Users } from 'lucide-react';
 import { formatoNumero, formatoPrecio } from '@/lib/formato';
 import { armarMensaje, bloqueNuevo, MAX_BLOQUES, resumenBloque, TIPOS_BLOQUE, validarDatos } from '@/lib/solicitud';
 import BloqueEditor, { Campo, baseInput, claseInput } from '@/components/SolicitudBloques';
@@ -66,7 +66,9 @@ export default function SolicitudClient({ zonas, inicial }) {
   const siguienteId = useRef(2);
   const [intento, setIntento] = useState(false);
   const [aviso, setAviso] = useState('');
-  const [simulado, setSimulado] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState('');
+  const [registrada, setRegistrada] = useState(null); // { codigo, texto, total } cuando ya quedó guardada
 
   const zonaPorId = new Map(zonas.map((z) => [z.id, z]));
   const resumenes = bloques.map((b) => resumenBloque(b, zonaPorId));
@@ -77,7 +79,6 @@ export default function SolicitudClient({ zonas, inicial }) {
 
   const totalUnidades = listos.reduce((acc, r) => acc + r.total, 0);
   const referencia = listos.reduce((acc, r) => acc + r.referencia, 0);
-  const hayAlgunaSimulacion = !WHATSAPP_NUMERO || !CORREO_SOLICITUDES;
 
   const campo = (nombre) => (e) => setDatos((prev) => ({ ...prev, [nombre]: e.target.value }));
   const errorDe = (nombre) => (intento ? erroresDatos[nombre] : undefined);
@@ -92,39 +93,56 @@ export default function SolicitudClient({ zonas, inicial }) {
     setBloques((prev) => prev.filter((b) => b.id !== id));
   }
 
-  async function enviar(canal) {
+  async function enviar() {
     setIntento(true);
     setAviso('');
-    setSimulado(null);
-    if (hay) return;
+    setErrorEnvio('');
+    if (hay || enviando) return;
 
-    if (canal === 'whatsapp') {
-      const texto = armarMensaje('whatsapp', datos, resumenes);
-      if (!WHATSAPP_NUMERO) {
-        setSimulado({ canal: 'WhatsApp', texto });
-        return;
-      }
-      window.open(`https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
-    const texto = armarMensaje('texto', datos, resumenes);
-    if (canal === 'correo') {
-      if (!CORREO_SOLICITUDES) {
-        setSimulado({ canal: 'correo', texto });
-        return;
-      }
-      const asunto = `Solicitud especial de dotación: ${datos.empresa.trim()}`;
-      window.location.href = `mailto:${CORREO_SOLICITUDES}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`;
-      return;
-    }
-
+    setEnviando(true);
     try {
-      await navigator.clipboard.writeText(texto);
-      setAviso('Solicitud copiada. Pégala en el canal que prefieras.');
+      const respuesta = await fetch('/api/solicitudes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ datos, bloques }),
+      });
+      const cuerpo = await respuesta.json().catch(() => ({}));
+      if (!respuesta.ok) {
+        setErrorEnvio(cuerpo.error || 'No se pudo registrar la solicitud. Intenta de nuevo.');
+        return;
+      }
+      setRegistrada({
+        codigo: cuerpo.solicitud.codigo,
+        total: cuerpo.solicitud.total_unidades,
+        texto: armarMensaje('texto', datos, resumenes),
+      });
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      setErrorEnvio('No hay conexión con el servidor. Revisa tu internet e intenta de nuevo.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function copiar() {
+    setIntento(true);
+    setAviso('');
+    if (hay) return;
+    try {
+      await navigator.clipboard.writeText(armarMensaje('texto', datos, resumenes));
+      setAviso('Solicitud copiada.');
     } catch {
       setAviso('No se pudo copiar. Selecciona el texto de la vista previa y cópialo a mano.');
     }
+  }
+
+  function nuevaSolicitud() {
+    setBloques([]);
+    setDatos((prev) => ({ ...prev, nit: '', fecha: '', notas: '' }));
+    setIntento(false);
+    setAviso('');
+    setErrorEnvio('');
+    setRegistrada(null);
   }
 
   const vistaPrevia = !hay ? armarMensaje('texto', datos, resumenes) : '';
@@ -154,19 +172,62 @@ export default function SolicitudClient({ zonas, inicial }) {
     );
   }
 
+  if (registrada) {
+    return (
+      <div className="mx-auto max-w-3xl pb-8" role="status">
+        <div className="border-2 border-tinta bg-papel">
+          <div className="flex items-start gap-4 border-b-2 border-tinta bg-seguridad px-5 py-5">
+            <Check className="mt-1 h-8 w-8 shrink-0" strokeWidth={3} aria-hidden="true" />
+            <div>
+              <h2 className="font-display text-4xl font-extrabold uppercase leading-none">Solicitud registrada</h2>
+              <p className="mt-2 text-base">
+                Tu código de seguimiento es{' '}
+                <strong className="font-display text-2xl font-bold tabular-nums">{registrada.codigo}</strong>.
+                Guárdalo para consultar la solicitud.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-4 p-5">
+            <p className="text-sm text-acero">
+              Quedó guardada con estado «recibida»: {formatoNumero(registrada.total)} unidades en total. Como es
+              un proyecto académico, no se envió a ningún WhatsApp ni correo real.
+            </p>
+            <details className="border-2 border-tinta bg-white" open>
+              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Resumen de lo que enviaste</summary>
+              <pre className="whitespace-pre-wrap break-words border-t-2 border-tinta p-3 font-sans text-sm">{registrada.texto}</pre>
+            </details>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={nuevaSolicitud}
+                className="border-2 border-tinta bg-tinta px-5 py-3 font-display text-xl font-semibold uppercase tracking-wide text-papel transition-colors hover:bg-seguridad hover:text-tinta"
+              >
+                Hacer otra solicitud
+              </button>
+              <Link
+                href="/"
+                className="border-2 border-tinta px-5 py-3 font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:bg-tinta hover:text-papel"
+              >
+                Volver al catálogo
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 pb-8 lg:grid-cols-[minmax(0,1fr)_23rem]">
       <div className="space-y-6">
-        {hayAlgunaSimulacion && (
-          <div role="note" className="flex gap-3 border-2 border-tinta bg-seguridad/30 p-4">
-            <Info className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2.5} aria-hidden="true" />
-            <p className="text-sm">
-              <strong className="font-semibold">Proyecto académico.</strong> El envío de esta solicitud es
-              una simulación: no se manda ningún mensaje a un número de WhatsApp ni a un correo real. Al
-              enviarla verás cómo quedaría el mensaje.
-            </p>
-          </div>
-        )}
+        <div role="note" className="flex gap-3 border-2 border-tinta bg-seguridad/30 p-4">
+          <Info className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2.5} aria-hidden="true" />
+          <p className="text-sm">
+            <strong className="font-semibold">Proyecto académico.</strong> La solicitud se guarda en la
+            base de datos del proyecto y queda con estado «recibida», pero no se envía a ningún
+            WhatsApp ni correo real.
+          </p>
+        </div>
 
         {/* ---------- Necesidades ---------- */}
         <Seccion
@@ -244,7 +305,7 @@ export default function SolicitudClient({ zonas, inicial }) {
         {/* ---------- Plazos ---------- */}
         <Seccion titulo="Plazos y requerimientos">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-[14rem_minmax(0,1fr)]">
-            <Campo id="fecha" etiqueta="Fecha en que lo necesitas (opcional)">
+            <Campo id="fecha" etiqueta="Fecha en que lo necesitas (opcional)" error={errorDe('fecha')}>
               <input id="fecha" type="date" value={datos.fecha} onChange={campo('fecha')} className={claseInput} />
             </Campo>
             <Campo id="notas" etiqueta="Notas adicionales (opcional)">
@@ -300,25 +361,29 @@ export default function SolicitudClient({ zonas, inicial }) {
             </div>
           )}
 
+          {errorEnvio && (
+            <div role="alert" className="border-2 border-alerta bg-white p-3 text-sm">
+              <p className="font-semibold text-alerta">No se pudo enviar</p>
+              <p>{errorEnvio}</p>
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={() => enviar('whatsapp')}
-            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-seguridad px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:bg-tinta hover:text-seguridad"
+            onClick={enviar}
+            disabled={enviando}
+            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-seguridad px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide transition-colors hover:bg-tinta hover:text-seguridad disabled:cursor-wait disabled:opacity-60 disabled:hover:bg-seguridad disabled:hover:text-tinta"
           >
-            <MessageCircle className="h-5 w-5" strokeWidth={2.5} />
-            Enviar por WhatsApp
+            {enviando ? (
+              <Loader2 className="h-5 w-5 animate-spin" strokeWidth={2.5} />
+            ) : (
+              <Send className="h-5 w-5" strokeWidth={2.5} />
+            )}
+            {enviando ? 'Enviando…' : 'Enviar solicitud'}
           </button>
           <button
             type="button"
-            onClick={() => enviar('correo')}
-            className="flex w-full items-center justify-center gap-2 border-2 border-tinta bg-tinta px-4 py-3 font-display text-xl font-semibold uppercase tracking-wide text-papel transition-colors hover:bg-seguridad hover:text-tinta"
-          >
-            <Mail className="h-5 w-5" strokeWidth={2.5} />
-            Enviar por correo
-          </button>
-          <button
-            type="button"
-            onClick={() => enviar('copiar')}
+            onClick={copiar}
             className="flex w-full items-center justify-center gap-2 border-2 border-tinta px-4 py-2.5 font-display text-lg font-semibold uppercase tracking-wide transition-colors hover:bg-tinta hover:text-papel"
           >
             <Copy className="h-4 w-4" strokeWidth={2.5} />
@@ -329,28 +394,13 @@ export default function SolicitudClient({ zonas, inicial }) {
             {aviso}
           </p>
 
-          {simulado && (
-            <div role="status" className="border-2 border-tinta bg-white">
-              <div className="flex items-start gap-2 border-b-2 border-tinta bg-seguridad px-3 py-2">
-                <Check className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={3} aria-hidden="true" />
-                <div>
-                  <p className="font-display text-lg font-bold uppercase leading-tight">Simulación completada</p>
-                  <p className="text-sm">Así se habría enviado por {simulado.canal}. No se envió nada.</p>
-                </div>
-              </div>
-              <pre className="whitespace-pre-wrap break-words p-3 font-sans text-sm">{simulado.texto}</pre>
-            </div>
-          )}
-
           <p className="text-sm text-acero">
-            {hayAlgunaSimulacion
-              ? 'Nada de esta solicitud se guarda ni se envía: es una simulación del flujo.'
-              : 'Esta solicitud no se guarda en el sitio: sale directo por el canal que elijas y desde ahí se continúa la conversación.'}
+            Al enviarla queda registrada con un código de seguimiento. El valor final se cotiza.
           </p>
 
           {vistaPrevia && (
             <details className="border-2 border-tinta bg-white">
-              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Ver el mensaje que se enviará</summary>
+              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Ver el resumen de la solicitud</summary>
               <pre className="whitespace-pre-wrap break-words border-t-2 border-tinta p-3 font-sans text-sm">{vistaPrevia}</pre>
             </details>
           )}

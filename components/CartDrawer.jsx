@@ -185,7 +185,17 @@ export default function CartDrawer() {
 
                       <ul className="divide-y divide-dashed divide-tinta/30">
                         {zona.lineas.map((l) => {
-                          const etiqueta = l.tallaNombre ? `${l.nombre}, talla ${l.tallaNombre}` : l.nombre;
+                          const generoLinea = l.genero === 'mujer' || l.genero === 'hombre' ? l.genero : null;
+                          const etiqueta = [l.nombre, generoLinea, l.tallaNombre ? `talla ${l.tallaNombre}` : null]
+                            .filter(Boolean)
+                            .join(', ');
+                          const detalleLinea = [
+                            generoLinea ? (generoLinea === 'mujer' ? 'Mujer' : 'Hombre') : null,
+                            l.tipo === 'accesorio' ? 'Accesorio' : null,
+                            l.tallaNombre ? `Talla ${l.tallaNombre}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ');
                           return (
                             <li key={l.key} className="flex gap-3 px-5 py-4">
                               <div className="relative h-16 w-16 shrink-0 border-2 border-tinta bg-concreto-oscuro">
@@ -199,7 +209,7 @@ export default function CartDrawer() {
                                   {l.nombre}
                                 </p>
                                 <p className="text-sm text-acero">
-                                  {l.tallaNombre ? `Talla ${l.tallaNombre}` : 'Accesorio'},{' '}
+                                  {detalleLinea},{' '}
                                   {formatoPrecio(l.precio)} c/u
                                 </p>
 

@@ -7,7 +7,7 @@
 'use client';
 
 import { Trash2 } from 'lucide-react';
-import { buscarArticulo, incluyeInicial, TIPOS_BLOQUE } from '@/lib/solicitud';
+import { buscarArticulo, incluyeInicial, nombreArticulo, TIPOS_BLOQUE } from '@/lib/solicitud';
 import { formatoNumero, formatoPrecio } from '@/lib/formato';
 
 export const baseInput =
@@ -67,7 +67,7 @@ function BloqueCatalogo({ bloque, zonas, zonaPorId, onCambiar }) {
               <optgroup label="Prendas">
                 {zona.prendas.map((p) => (
                   <option key={p.id} value={`p:${p.id}`}>
-                    {p.nombre}
+                    {nombreArticulo(p)}
                   </option>
                 ))}
               </optgroup>
@@ -88,7 +88,7 @@ function BloqueCatalogo({ bloque, zonas, zonaPorId, onCambiar }) {
       {art && (
         <div className="border-2 border-tinta/30 bg-papel p-3 text-sm">
           <p>
-            <strong className="font-semibold">{art.nombre}</strong>, precio de catálogo{' '}
+            <strong className="font-semibold">{nombreArticulo(art)}</strong>, precio de catálogo{' '}
             {formatoPrecio(art.precio)} por unidad.
           </p>
           {art.descripcion && <p className="mt-0.5 text-acero">{art.descripcion}</p>}
@@ -175,7 +175,7 @@ function BloqueEquipo({ bloque, zonas, zonaPorId, onCambiar }) {
 
   const filas = zona
     ? [
-        ...zona.prendas.map((p) => ({ key: `p:${p.id}`, nombre: p.nombre, tipo: 'Prenda' })),
+        ...zona.prendas.map((p) => ({ key: `p:${p.id}`, nombre: nombreArticulo(p), tipo: 'Prenda' })),
         ...zona.accesorios.map((a) => ({ key: `a:${a.id}`, nombre: a.nombre, tipo: 'Accesorio' })),
       ]
     : [];

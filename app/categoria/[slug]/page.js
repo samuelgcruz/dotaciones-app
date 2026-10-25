@@ -1,7 +1,7 @@
 // app/categoria/[slug]/page.js
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { obtenerCategoriaConDetalle, obtenerCategorias } from '@/lib/queries';
+import { obtenerCategoriaConDetalle, obtenerCategorias, obtenerTallas } from '@/lib/queries';
 import CategoriaClient from './CategoriaClient';
 
 export default async function CategoriaPage({ params }) {
@@ -11,6 +11,9 @@ export default async function CategoriaPage({ params }) {
     obtenerCategoriaConDetalle(slug),
     obtenerCategorias(),
   ]);
+
+  // Las tallas solo se piden si algún accesorio de la zona las necesita
+  const tallas = accesorios.some((a) => a.requiere_talla) ? await obtenerTallas() : [];
 
   const posicion = categorias.findIndex((c) => c.id === categoria.id);
   const numero = String(posicion + 1).padStart(2, '0');
@@ -66,7 +69,7 @@ export default async function CategoriaPage({ params }) {
         </div>
       </header>
 
-      <CategoriaClient categoria={categoria} productos={productos} accesorios={accesorios} />
+      <CategoriaClient categoria={categoria} productos={productos} accesorios={accesorios} tallas={tallas} />
     </div>
   );
 }

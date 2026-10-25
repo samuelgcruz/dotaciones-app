@@ -1,10 +1,10 @@
 // app/solicitud/page.js
 // Solicitud especial: pedidos por volumen, equipos completos o artículos a la medida.
-// Solo LEE el catálogo (para que la empresa elija artículos reales); no escribe nada en la BD.
+// Lee el catálogo (para que la empresa elija artículos reales); el guardado lo hace /api/solicitudes.
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { obtenerCatalogoCompleto } from '@/lib/queries';
-import { compararNombresTalla, etiquetaTipo } from '@/lib/formato';
+import { construirZonas } from '@/lib/solicitud';
 import SolicitudClient from './SolicitudClient';
 
 export const metadata = {
@@ -16,28 +16,8 @@ export default async function SolicitudPage({ searchParams }) {
   const params = await searchParams;
   const catalogo = await obtenerCatalogoCompleto();
 
-  // Solo datos simples y serializables para el cliente
-  const zonas = catalogo.map(({ categoria, productos, accesorios }) => ({
-    id: categoria.id,
-    nombre: categoria.nombre,
-    slug: categoria.slug,
-    prendas: productos.map((p) => ({
-      id: p.id,
-      nombre: p.nombre,
-      tipo: etiquetaTipo(p.tipo_prenda),
-      descripcion: p.descripcion ?? '',
-      precio: Number(p.precio_base),
-      tallas: [...p.producto_tallas]
-        .sort((a, b) => compararNombresTalla(a.tallas.nombre, b.tallas.nombre))
-        .map((pt) => ({ id: pt.tallas.id, nombre: pt.tallas.nombre, stock: pt.stock })),
-    })),
-    accesorios: accesorios.map((a) => ({
-      id: a.id,
-      nombre: a.nombre,
-      descripcion: a.descripcion ?? '',
-      precio: Number(a.precio),
-    })),
-  }));
+  // Solo datos simples y serializables para el cliente (misma función que usa el servidor)
+  const zonas = construirZonas(catalogo);
 
   // Si llega desde una ficha del catálogo, ya viene la zona, el artículo y la talla elegidos
   const texto = (v) => (typeof v === 'string' ? v : '');

@@ -2,6 +2,9 @@
 // Accesorios de la zona como lista de pedido: miniatura, nombre y descripción,
 // precio y cantidad en una misma fila. Incluye buscador, orden y un filtro para
 // ver solo los que ya están en el pedido.
+// Los accesorios son independientes del género: no se filtran por Mujer/Hombre. Solo los
+// que están marcados con requiere_talla (por ejemplo unos guantes) piden elegir una talla;
+// los demás se agregan directo.
 'use client';
 
 import { useState } from 'react';
@@ -10,7 +13,7 @@ import Link from 'next/link';
 import { Package, Plus, Search } from 'lucide-react';
 import { claveLinea, useCarrito } from '@/lib/carrito';
 import { hrefSolicitud } from '@/lib/contacto';
-import { formatoPrecio } from '@/lib/formato';
+import { compararNombresTalla, formatoPrecio } from '@/lib/formato';
 import ControlCantidad from './ControlCantidad';
 
 const TOPE_POR_LINEA = 99;
@@ -21,8 +24,10 @@ const ORDENES = {
   mayor: { etiqueta: 'Precio: mayor a menor', comparar: (a, b) => Number(b.precio) - Number(a.precio) },
 };
 
-export default function AccessoriesSelector({ accesorios, categoria }) {
-  const { cantidadDe, ajustarLinea } = useCarrito();
+export default function AccessoriesSelector({ accesorios, categoria, tallas = [] }) {
+  const { lineas, cantidadDe, ajustarLinea } = useCarrito();
+  const [tallaElegida, setTallaElegida] = useState({}); // accesorioId → tallaId
+  const tallasOrdenadas = [...tallas].sort((a, b) => compararNombresTalla(a.nombre, b.nombre));
   const [busqueda, setBusqueda] = useState('');
   const [orden, setOrden] = useState('nombre');
   const [soloAgregados, setSoloAgregados] = useState(false);
@@ -31,13 +36,15 @@ export default function AccessoriesSelector({ accesorios, categoria }) {
     return <p className="text-acero">Esta zona no tiene accesorios adicionales.</p>;
   }
 
-  const claveDe = (a) => claveLinea('accesorio', a.id, null);
-  const agregados = accesorios.filter((a) => cantidadDe(claveDe(a)) > 0).length;
+  // Unidades de un accesorio sumando todas sus tallas (si no lleva talla, es una sola línea)
+  const unidadesDe = (a) =>
+    lineas.filter((l) => l.tipo === 'accesorio' && l.id === a.id).reduce((acc, l) => acc + l.cantidad, 0);
+  const agregados = accesorios.filter((a) => unidadesDe(a) > 0).length;
 
   const termino = busqueda.trim().toLowerCase();
   const visibles = accesorios
     .filter((a) => !termino || `${a.nombre} ${a.descripcion ?? ''}`.toLowerCase().includes(termino))
-    .filter((a) => !soloAgregados || cantidadDe(claveDe(a)) > 0)
+    .filter((a) => !soloAgregados || unidadesDe(a) > 0)
     .sort(ORDENES[orden].comparar);
 
   return (
@@ -108,12 +115,15 @@ export default function AccessoriesSelector({ accesorios, categoria }) {
           <ul className="divide-y-2 divide-tinta/15">
             {visibles.map((accesorio) => {
               const precio = Number(accesorio.precio);
+              const llevaTalla = Boolean(accesorio.requiere_talla);
+              const tallaId = llevaTalla ? tallaElegida[accesorio.id] ?? '' : null;
+              const tallaNombre = llevaTalla ? tallasOrdenadas.find((t) => t.id === tallaId)?.nombre ?? null : null;
               const base = {
-                key: claveDe(accesorio),
+                key: claveLinea('accesorio', accesorio.id, tallaId || null),
                 tipo: 'accesorio',
                 id: accesorio.id,
-                tallaId: null,
-                tallaNombre: null,
+                tallaId: tallaId || null,
+                tallaNombre,
                 nombre: accesorio.nombre,
                 precio,
                 stock: TOPE_POR_LINEA, // los accesorios no manejan stock en la BD
@@ -123,12 +133,21 @@ export default function AccessoriesSelector({ accesorios, categoria }) {
                 categoriaSlug: categoria.slug,
               };
               const cantidad = cantidadDe(base.key);
+              const unidades = unidadesDe(accesorio);
+              const etiqueta = tallaNombre ? `${accesorio.nombre}, talla ${tallaNombre}` : accesorio.nombre;
+              const porTalla = llevaTalla
+                ? lineas
+                    .filter((l) => l.tipo === 'accesorio' && l.id === accesorio.id)
+                    .sort((a, b) => compararNombresTalla(a.tallaNombre ?? '', b.tallaNombre ?? ''))
+                    .map((l) => `talla ${l.tallaNombre}: ${l.cantidad}`)
+                    .join(' · ')
+                : '';
 
               return (
                 <li
                   key={accesorio.id}
                   className={`grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 gap-y-3 p-3 md:grid-cols-[4.5rem_minmax(0,1fr)_7rem_17rem] md:items-start ${
-                    cantidad > 0 ? 'bg-seguridad/25' : ''
+                    unidades > 0 ? 'bg-seguridad/25' : ''
                   }`}
                 >
                   <div className="relative h-[4.5rem] w-[4.5rem] border-2 border-tinta bg-concreto-oscuro">
@@ -146,6 +165,7 @@ export default function AccessoriesSelector({ accesorios, categoria }) {
                     {accesorio.descripcion && (
                       <p className="mt-0.5 line-clamp-2 text-sm text-acero">{accesorio.descripcion}</p>
                     )}
+                    {porTalla && <p className="mt-1 text-sm font-semibold">En tu pedido: {porTalla}</p>}
                     <p className="mt-1 font-display text-xl font-semibold tabular-nums md:hidden">
                       {formatoPrecio(precio)} <span className="font-sans text-xs font-normal text-acero">por unidad</span>
                     </p>
@@ -156,7 +176,33 @@ export default function AccessoriesSelector({ accesorios, categoria }) {
                   </p>
 
                   <div className="col-span-2 md:col-span-1">
-                    {cantidad === 0 ? (
+                    {llevaTalla && (
+                      <div className="mb-2">
+                        <label htmlFor={`talla-${accesorio.id}`} className="mb-1 block text-xs font-semibold text-acero">
+                          Talla de este accesorio
+                        </label>
+                        <select
+                          id={`talla-${accesorio.id}`}
+                          value={tallaId ?? ''}
+                          onChange={(e) => setTallaElegida((prev) => ({ ...prev, [accesorio.id]: e.target.value }))}
+                          disabled={tallasOrdenadas.length === 0}
+                          className="w-full border-2 border-tinta bg-white px-3 py-2 text-base"
+                        >
+                          <option value="">{tallasOrdenadas.length === 0 ? 'Sin tallas cargadas' : 'Elige una talla'}</option>
+                          {tallasOrdenadas.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {llevaTalla && !tallaId ? (
+                      <p className="border-2 border-dashed border-tinta/40 px-3 py-2.5 text-sm text-acero">
+                        Elige una talla para indicar la cantidad.
+                      </p>
+                    ) : cantidad === 0 ? (
                       <button
                         type="button"
                         onClick={() => ajustarLinea(base, 1)}
@@ -170,7 +216,7 @@ export default function AccessoriesSelector({ accesorios, categoria }) {
                         <ControlCantidad
                           cantidad={cantidad}
                           max={TOPE_POR_LINEA}
-                          etiqueta={accesorio.nombre}
+                          etiqueta={etiqueta}
                           onCambiar={(n) => ajustarLinea(base, n - cantidad)}
                         />
                         {cantidad >= TOPE_POR_LINEA && (
